@@ -106,6 +106,8 @@ class DataStoreManager(private val context: Context) {
         prefs.isPrivateDnsEnabled = updated.isPrivateDnsEnabled
         prefs.selectedPrivateDnsHostname = updated.selectedPrivateDnsHostname
         prefs.isPrivateDnsLocked = updated.isPrivateDnsLocked
+        @Suppress("DEPRECATION")
+        prefs.blockedWebsites = updated.blockedWebsites.toMutableSet()
     }
 
     suspend fun updateAppBlocked(packageName: String, isBlocked: Boolean) {

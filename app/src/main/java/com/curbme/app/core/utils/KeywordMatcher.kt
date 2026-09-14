@@ -50,7 +50,7 @@ object KeywordMatcher {
             }
         }
         val prefix = when {
-            optionalSubdomain -> "^(?:[^/]+\\.)?"
+            optionalSubdomain -> "^(?:[^/]+\\.)*"
             pattern.startsWith("/") -> "^[^/]+"
             pattern.substringBefore('/').contains('.') -> "^"
             else -> ""
@@ -86,8 +86,15 @@ object KeywordMatcher {
             url.startsWith("$keyword?") || url.startsWith("$keyword#")
         ) return true
 
+        val domain = url.substringBefore('/').substringBefore('?').substringBefore('#')
+        if (domain == keyword || domain.endsWith(".$keyword")) {
+            val rest = url.substring(domain.length)
+            if (rest.isEmpty() || rest.startsWith('/') || rest.startsWith('?') || rest.startsWith('#')) {
+                return true
+            }
+        }
+
         if (!keyword.contains('.') && !keyword.contains('/')) {
-            val domain = url.substringBefore('/').substringBefore('?').substringBefore('#')
             if (domain.split('.').any { it == keyword }) return true
         }
 

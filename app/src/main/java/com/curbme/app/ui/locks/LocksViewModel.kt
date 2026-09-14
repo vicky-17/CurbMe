@@ -90,9 +90,12 @@ class LocksViewModel(
     private val _wizardState = MutableStateFlow(WizardState())
     val wizardState = _wizardState.asStateFlow()
 
+    private val dataStoreManager = DataStoreManager(context)
+
     // Website states
-    private val _blockedWebsites = MutableStateFlow(prefs.blockedWebsites)
-    val blockedWebsites = _blockedWebsites.asStateFlow()
+    val blockedWebsites: StateFlow<Set<String>> = dataStoreManager.settings
+        .map { it.blockedWebsites }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     private val db = AppDatabase.getDatabase(context)
     val visitedWebsites: StateFlow<List<WebsiteStatsEntity>> =
@@ -305,8 +308,6 @@ class LocksViewModel(
 
     // --- Website Actions ---
 
-    private val dataStoreManager = DataStoreManager(context)
-
     fun addWebsite(domain: String) {
         val cleaned = domain.trim().lowercase()
             .removePrefix("http://")
@@ -314,8 +315,6 @@ class LocksViewModel(
             .removePrefix("www.")
             .trimEnd('/')
         if (cleaned.isNotEmpty()) {
-            prefs.addBlockedWebsite(cleaned)
-            _blockedWebsites.value = prefs.blockedWebsites
             viewModelScope.launch {
                 dataStoreManager.updateSettings { current ->
                     val updated = current.blockedWebsites.toMutableSet()
@@ -327,8 +326,6 @@ class LocksViewModel(
     }
 
     fun removeWebsite(domain: String) {
-        prefs.removeBlockedWebsite(domain)
-        _blockedWebsites.value = prefs.blockedWebsites
         viewModelScope.launch {
             dataStoreManager.updateSettings { current ->
                 val updated = current.blockedWebsites.toMutableSet()

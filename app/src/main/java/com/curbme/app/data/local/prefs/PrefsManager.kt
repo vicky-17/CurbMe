@@ -399,18 +399,23 @@ class PrefsManager(context: Context) {
         private const val KEY_BANKING_BYPASS_START_TIME = "banking_bypass_start_time"
     }
 
+    @Deprecated("Use DataStoreManager as single source of truth for blockedWebsites")
     var blockedWebsites: MutableSet<String>
         get() = prefs.getStringSet(KEY_BLOCKED_WEBSITES, emptySet()) ?: emptySet<String>().toMutableSet()
         set(value) {
             prefs.edit { putStringSet(KEY_BLOCKED_WEBSITES, value) }
         }
 
+    @Deprecated("Use DataStoreManager.updateSettings as single source of truth")
+    @Suppress("DEPRECATION")
     fun addBlockedWebsite(url: String) {
         val websites = blockedWebsites.toMutableSet()
         websites.add(url)
         blockedWebsites = websites
     }
 
+    @Deprecated("Use DataStoreManager.updateSettings as single source of truth")
+    @Suppress("DEPRECATION")
     fun removeBlockedWebsite(url: String) {
         val websites = blockedWebsites.toMutableSet()
         websites.remove(url)

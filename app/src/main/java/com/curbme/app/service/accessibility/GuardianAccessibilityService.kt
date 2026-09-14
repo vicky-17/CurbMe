@@ -2,6 +2,7 @@ package com.curbme.app.service.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -28,6 +29,7 @@ class GuardianAccessibilityService : AccessibilityService() {
     private var dataStoreManager: DataStoreManager? = null
     private var settings = Settings()
     private val settingsFlow = MutableStateFlow(Settings())
+    private var lastViewEventTimestamp: Long = 0L
     
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val eventChannel = Channel<AccessibilityEventInfo>(Channel.CONFLATED)
@@ -156,8 +158,18 @@ class GuardianAccessibilityService : AccessibilityService() {
             && eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
             && eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED
             && eventType != AccessibilityEvent.TYPE_VIEW_CLICKED
+            && eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+            && eventType != AccessibilityEvent.TYPE_VIEW_FOCUSED
         ) {
             return
+        }
+
+        if (eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED || eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastViewEventTimestamp < MIN_VIEW_EVENT_INTERVAL_MS) {
+                return
+            }
+            lastViewEventTimestamp = now
         }
 
         if (pkgSeq == null) {
@@ -269,6 +281,7 @@ class GuardianAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "GuardianService"
+        private const val MIN_VIEW_EVENT_INTERVAL_MS = 200L
 
         @JvmStatic
         fun disableService(context: Context? = null) {

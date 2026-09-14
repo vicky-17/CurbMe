@@ -6,18 +6,21 @@ import android.content.Intent
 import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
+import com.curbme.app.BuildConfig
 import com.curbme.app.core.utils.KeywordMatcher
 import com.curbme.app.data.local.prefs.Settings
 import com.curbme.app.service.accessibility.detectors.BrowserUrlReader
 import com.curbme.app.ui.block.BlockedPageActivity
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Handles real-time accessibility-based website and URL path blocking.
  */
 class WebsiteBlockHandler(private val context: Context) {
 
-    private var lastBlockedTarget: String = ""
-    private var blockSuppressedUntil: Long = 0L
+    private val suppressedTargets = ConcurrentHashMap<String, Long>()
+    private var lastPruneTime: Long = 0L
 
     fun handle(
         rootNode: AccessibilityNodeInfo?,
@@ -32,14 +35,21 @@ class WebsiteBlockHandler(private val context: Context) {
         if (!isBlocked) return false
 
         val now = SystemClock.elapsedRealtime()
-        if (siteInfo.urlIdentifier == lastBlockedTarget && now < blockSuppressedUntil) {
+
+        // Periodically prune expired suppression targets
+        if (now - lastPruneTime > PRUNE_INTERVAL_MS) {
+            lastPruneTime = now
+            suppressedTargets.entries.removeIf { it.value <= now }
+        }
+
+        val suppressedUntil = suppressedTargets[siteInfo.urlIdentifier]
+        if (suppressedUntil != null && now < suppressedUntil) {
             return true
         }
 
-        lastBlockedTarget = siteInfo.urlIdentifier
-        blockSuppressedUntil = now + 5000L
+        suppressedTargets[siteInfo.urlIdentifier] = now + SUPPRESSION_DURATION_MS
 
-        Log.w("WebsiteBlockHandler", "🚫 Website blocked via Accessibility: ${siteInfo.urlIdentifier}")
+        Log.w(TAG, "🚫 Website blocked via Accessibility: ${siteInfo.urlIdentifier}")
 
         // Navigate away via BACK then HOME and show block page
         performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
@@ -50,7 +60,7 @@ class WebsiteBlockHandler(private val context: Context) {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             context.startActivity(intent)
         } catch (e: Exception) {
-            Log.e("WebsiteBlockHandler", "Failed to launch BlockedPageActivity", e)
+            Log.e(TAG, "Failed to launch BlockedPageActivity", e)
         }
 
         return true
@@ -58,13 +68,24 @@ class WebsiteBlockHandler(private val context: Context) {
 
     private fun isWebsiteBlocked(domain: String, urlIdentifier: String, settings: Settings): Boolean {
         if (settings.blockedWebsites.isEmpty()) return false
+        val normalizedDomain = domain.lowercase(Locale.ROOT).removePrefix("www.")
 
-        // 1. Direct domain or URL match
-        if (settings.blockedWebsites.contains(domain) || settings.blockedWebsites.contains(urlIdentifier)) {
-            return true
+        val isBlocked = settings.blockedWebsites.contains(domain) ||
+                settings.blockedWebsites.contains(normalizedDomain) ||
+                settings.blockedWebsites.contains(urlIdentifier) ||
+                KeywordMatcher.isMatch(settings.blockedWebsites, urlIdentifier) ||
+                KeywordMatcher.isMatch(settings.blockedWebsites, normalizedDomain)
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Blocked-website check: raw=$domain, urlIdentifier=$urlIdentifier, normalized=$normalizedDomain, match=$isBlocked")
         }
 
-        // 2. KeywordMatcher pattern match (supports wildcards *.domain.com, paths /shorts, etc.)
-        return KeywordMatcher.isMatch(settings.blockedWebsites, urlIdentifier)
+        return isBlocked
+    }
+
+    companion object {
+        private const val TAG = "WebsiteBlockHandler"
+        private const val SUPPRESSION_DURATION_MS = 5000L
+        private const val PRUNE_INTERVAL_MS = 30000L
     }
 }

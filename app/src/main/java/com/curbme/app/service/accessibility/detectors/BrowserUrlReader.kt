@@ -1,6 +1,8 @@
 package com.curbme.app.service.accessibility.detectors
 
+import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
+import com.curbme.app.BuildConfig
 import java.net.URI
 import java.util.Locale
 
@@ -8,6 +10,8 @@ import java.util.Locale
  * Extracts and normalizes domain names and full URL identifiers from browser address bar accessibility nodes.
  */
 object BrowserUrlReader {
+
+    private const val TAG = "BrowserUrlReader"
 
     data class SiteInfo(
         val domain: String,
@@ -60,6 +64,34 @@ object BrowserUrlReader {
                     }
                 }
             }
+        }
+
+        // Generic fallback scan when known view IDs return nothing
+        val fallbackSiteInfo = findUrlGenerically(rootNode)
+        if (fallbackSiteInfo != null) return fallbackSiteInfo
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Failed to resolve URL bar for supported browser package: $packageName")
+        }
+
+        return null
+    }
+
+    private fun findUrlGenerically(node: AccessibilityNodeInfo?): SiteInfo? {
+        if (node == null) return null
+
+        val rawText = (node.text ?: node.contentDescription)?.toString()
+        if (!rawText.isNullOrBlank()) {
+            val siteInfo = extractSiteInfoFromText(rawText)
+            if (siteInfo != null) return siteInfo
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findUrlGenerically(child)
+            @Suppress("DEPRECATION")
+            child.recycle()
+            if (result != null) return result
         }
 
         return null
