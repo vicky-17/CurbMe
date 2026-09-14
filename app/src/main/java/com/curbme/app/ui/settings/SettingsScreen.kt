@@ -97,14 +97,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            ActionCard(
-                title = "Emergency Data Wipe",
-                description = "Clears the database if the app is crashing. Requires app restart.",
-                icon = Icons.Rounded.DeleteForever,
-                onClick = {
-                    showWipeConfirm = true
-                }
-            )
+
         }
     }
 

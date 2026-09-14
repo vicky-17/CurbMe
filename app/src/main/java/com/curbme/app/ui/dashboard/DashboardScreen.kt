@@ -55,6 +55,7 @@ import com.curbme.app.ui.contentfilter.WebsiteUsageCard
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val BgDeep      = Color(0xFF04040c)
 private val AccentBlue  = Color(0xFF3B82F6)
@@ -85,6 +86,9 @@ fun DashboardScreen(
     var showAccessibilityDialog by remember { mutableStateOf(false) }
     var showShortsConfigSheet by remember { mutableStateOf(false) }
 
+    var trackedWebsites by remember { mutableStateOf<List<WebsiteStatsEntity>>(emptyList()) }
+    var isWebTrackingEnabled by remember { mutableStateOf(true) }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     var isAccessibilityGranted by remember {
         mutableStateOf(PermissionHelper.isAccessibilityEnabled(context))
@@ -94,6 +98,21 @@ fun DashboardScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 isAccessibilityGranted = PermissionHelper.isAccessibilityEnabled(context)
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val db = AppDatabase.getDatabase(context)
+                        val today = TimeUtils.todayKey()
+                        val count = db.reelStatsDao().getCount(today) ?: 0
+                        val stats = db.reelUsageStatsDao().getForDate(today)
+                        val timeMs = stats.sumOf { it.totalTime }
+                        val websites = db.websiteStatsDao().getForDate(today)
+                        withContext(Dispatchers.Main) {
+                            reelCount = count
+                            reelTimeMs = timeMs
+                            trackedWebsites = websites
+                        }
+                    } catch (_: Exception) {}
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -103,9 +122,6 @@ fun DashboardScreen(
     }
 
     val isLocked = remember(refreshKey) { PrefsManager(context).isSettingsLocked }
-    
-    var trackedWebsites by remember { mutableStateOf<List<WebsiteStatsEntity>>(emptyList()) }
-    var isWebTrackingEnabled by remember { mutableStateOf(true) }
 
     LaunchedEffect(refreshKey) {
         usageViewModel.refreshStats()

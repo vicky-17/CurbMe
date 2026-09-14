@@ -22,16 +22,19 @@ object ShortsDetector {
     val TARGET_SHORT_VIDEO_PACKAGES: Set<String> = setOf(
         "com.google.android.youtube",
         "app.revanced.android.youtube",
-        "com.google.android.youtube.tv",
+        "app.morphe.android.youtube",
         "com.vanced.android.youtube",
         "com.instagram.android",
+        "com.myinsta.android",
         "com.instagram.lite",
         "com.snapchat.android",
         "com.facebook.katana",
         "com.facebook.lite",
         "com.reddit.frontpage",
         "com.twitter.android",
-        "com.pinterest"
+        "com.pinterest",
+        "com.zhiliaoapp.musically",
+        "com.ss.android.ugc.trill"
     )
 
     // Exact view IDs for YouTube / ReVanced Shorts
@@ -49,7 +52,19 @@ object ShortsDetector {
         "reel_control_bar",
         "reel_interaction_layer",
         "shorts_pivot_button",
-        "shorts_camera_button"
+        "shorts_camera_button",
+        "player_overlay",
+        "reel_player_overlay_container",
+        "reel_player_overlay_root",
+        "reel_byline_text_offline",
+        "reel_main_title_offline",
+        "reel_byline_text",
+        "reel_main_title",
+        "reel_channel_name_text_view",
+        "reel_channel_name",
+        "channel_name",
+        "reel_title",
+        "reel_watch_fragment_root"
     )
 
     // Exact view IDs for Instagram Reels
@@ -65,7 +80,10 @@ object ShortsDetector {
         "clips_viewer_fragment",
         "clips_item_layout",
         "reel_viewer_title",
-        "clips_action_bar"
+        "clips_action_bar",
+        "clips_viewer_view_pager",
+        "clips_author_username",
+        "clips_captions_component"
     )
 
     // Exact view IDs for Snapchat Spotlight
@@ -108,13 +126,11 @@ object ShortsDetector {
 
         // 2. Fast check known view IDs using findAccessibilityNodeInfosByViewId
         if (checkKnownViewIds(rootNode, packageName)) {
-            Log.d(TAG, "Known view ID match for package: $packageName")
             return true
         }
 
         // 3. Recursive inspection for view ID patterns or selected navigation tabs
         if (checkNodeTreePatterns(rootNode, packageName)) {
-            Log.d(TAG, "Node tree pattern/tab match for package: $packageName")
             return true
         }
 
@@ -152,6 +168,7 @@ object ShortsDetector {
                             foundVisible = true
                         }
                     }
+                    @Suppress("DEPRECATION")
                     node.recycle()
                 }
                 return foundVisible
@@ -238,6 +255,97 @@ object ShortsDetector {
         for (i in 0 until childCount) {
             val child = node.getChild(i) ?: continue
             val result = scanNode(child, depth + 1, visitedCount, packageName)
+            @Suppress("DEPRECATION")
+            child.recycle()
+            if (result) return true
+        }
+
+        return false
+    }
+
+    /**
+     * Checks if the screen explicitly displays a non-Shorts section (e.g. Home feed, Search, Subscriptions, Profile).
+     */
+    @JvmStatic
+    fun isExplicitNonShortsPage(rootNode: AccessibilityNodeInfo?, packageName: String?): Boolean {
+        if (rootNode == null || packageName == null) return false
+
+        // If Shorts UI elements are present on screen, it CANNOT be a non-shorts page!
+        if (shouldBlock(rootNode, packageName)) {
+            return false
+        }
+
+        val visitedCount = intArrayOf(0)
+        return scanForNonShorts(rootNode, depth = 0, visitedCount = visitedCount, packageName = packageName)
+    }
+
+    private fun scanForNonShorts(
+        node: AccessibilityNodeInfo?,
+        depth: Int,
+        visitedCount: IntArray,
+        packageName: String
+    ): Boolean {
+        if (node == null || depth > 20 || visitedCount[0] > 120) return false
+        visitedCount[0]++
+
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
+        val text = node.text?.toString() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
+        val isSelected = node.isSelected
+
+        when {
+            packageName.contains("youtube") -> {
+                // Selected bottom navigation tabs for non-Shorts sections
+                if (isSelected && node.isVisibleToUser) {
+                    val label = (if (text.isNotBlank()) text else desc).trim()
+                    if (label.equals("Home", ignoreCase = true) ||
+                        label.equals("Subscriptions", ignoreCase = true) ||
+                        label.equals("You", ignoreCase = true) ||
+                        label.equals("Library", ignoreCase = true)
+                    ) {
+                        return true
+                    }
+                }
+                // Explicit view IDs for YouTube Search
+                if (viewId.contains(":id/search_edit_text") ||
+                    viewId.contains(":id/search_input")
+                ) {
+                    if (node.isVisibleToUser) return true
+                }
+            }
+            packageName.contains("instagram") -> {
+                if (isSelected && node.isVisibleToUser) {
+                    val label = (if (text.isNotBlank()) text else desc).trim()
+                    if (label.equals("Home", ignoreCase = true) ||
+                        label.equals("Search", ignoreCase = true) ||
+                        label.equals("Profile", ignoreCase = true)
+                    ) {
+                        return true
+                    }
+                }
+                if (viewId.contains(":id/direct_inbox") || viewId.contains(":id/direct_thread")) {
+                    if (node.isVisibleToUser) return true
+                }
+            }
+            packageName.contains("snapchat") -> {
+                if (isSelected && node.isVisibleToUser) {
+                    val label = (if (text.isNotBlank()) text else desc).trim()
+                    if (label.equals("Chat", ignoreCase = true) ||
+                        label.equals("Camera", ignoreCase = true) ||
+                        label.equals("Map", ignoreCase = true) ||
+                        label.equals("Stories", ignoreCase = true)
+                    ) {
+                        return true
+                    }
+                }
+            }
+        }
+
+        val childCount = node.childCount
+        for (i in 0 until childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = scanForNonShorts(child, depth + 1, visitedCount, packageName)
+            @Suppress("DEPRECATION")
             child.recycle()
             if (result) return true
         }

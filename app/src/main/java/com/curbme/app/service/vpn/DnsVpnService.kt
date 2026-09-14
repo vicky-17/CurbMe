@@ -16,6 +16,9 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.curbme.app.core.utils.Constants
+import com.curbme.app.core.utils.TimeUtils
+import com.curbme.app.data.local.db.AppDatabase
+import com.curbme.app.data.local.db.entity.WebsiteStatsEntity
 import com.curbme.app.data.local.prefs.DataStoreManager
 import com.curbme.app.data.local.prefs.Settings
 import com.curbme.app.service.vpn.DnsPacketParser.DnsQuery
@@ -200,6 +203,7 @@ class DnsVpnService : VpnService() {
 
                 val query = parse(packetBuffer, length)
                 if (query == null) continue
+                recordDnsQuery(query.domain)
 
                 var response: ByteArray? = null
                 val decision = filterEngine!!.decide(query.domain, query.queryType, settings)
@@ -224,6 +228,30 @@ class DnsVpnService : VpnService() {
             }
         } catch (e: Exception) {
             if (isRunning) Log.e(TAG, "Error in VPN loop", e)
+        }
+    }
+
+    private fun recordDnsQuery(domain: String?) {
+        if (domain.isNullOrBlank() || !settings.isWebsiteUsageTrackingEnabled) return
+        val lower = domain.lowercase().removePrefix("www.")
+        if (!lower.contains('.')) return
+        val today = TimeUtils.todayKey()
+        val wallNow = System.currentTimeMillis()
+        serviceScope.launch {
+            try {
+                val dao = AppDatabase.getDatabase(this@DnsVpnService).websiteStatsDao()
+                dao.insertIfAbsent(
+                    WebsiteStatsEntity(
+                        date = today,
+                        packageName = "vpn_filter",
+                        domain = lower,
+                        urlIdentifier = lower,
+                        totalTime = 0L,
+                        lastVisited = wallNow
+                    )
+                )
+                dao.touch(today, "vpn_filter", lower, wallNow)
+            } catch (_: Exception) {}
         }
     }
 

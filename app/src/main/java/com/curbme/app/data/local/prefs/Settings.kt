@@ -44,6 +44,7 @@ data class Settings(
     ),
     val isPrivateDnsLocked: Boolean = false,
     val blockedWebsites: Set<String> = emptySet(),
+    val isBlockUnsupportedBrowsers: Boolean = false,
     val isBankingBypassEnabled: Boolean = false,
     val bankingBypassPackage: String? = null,
     val bankingBypassStartTime: Long = 0L,

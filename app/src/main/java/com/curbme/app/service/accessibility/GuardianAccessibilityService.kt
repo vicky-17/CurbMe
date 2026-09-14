@@ -11,8 +11,10 @@ import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.data.local.prefs.Settings
 import com.curbme.app.service.accessibility.detectors.ShortsDetector
 import com.curbme.app.service.accessibility.handlers.AppBlockHandler
+import com.curbme.app.service.accessibility.handlers.BrowserBlocker
 import com.curbme.app.service.accessibility.handlers.ReelCounterHandler
 import com.curbme.app.service.accessibility.handlers.ShortsBlockHandler
+import com.curbme.app.service.accessibility.handlers.WebsiteBlockHandler
 import com.curbme.app.service.accessibility.handlers.WebsiteUsageHandler
 import com.curbme.app.service.monitor.AppUsageTracker
 import com.curbme.app.ui.block.AppBlockOverlayManager
@@ -41,6 +43,8 @@ class GuardianAccessibilityService : AccessibilityService() {
     private var appUsageTracker: AppUsageTracker? = null
     private var reelCounterHandler: ReelCounterHandler? = null
     private var websiteUsageHandler: WebsiteUsageHandler? = null
+    private var websiteBlockHandler: WebsiteBlockHandler? = null
+    private var browserBlocker: BrowserBlocker? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -51,6 +55,11 @@ class GuardianAccessibilityService : AccessibilityService() {
             dataStoreManager?.settings?.collect { newSettings ->
                 settings = newSettings
                 settingsFlow.value = newSettings
+                val isOverlayEnabledInPrefs = PrefsManager(this@GuardianAccessibilityService).isReelCounterOverlayOn
+                val isOverlayEnabledInSettings = newSettings.reelPlanConfig.isDisplayReelCounterOverlay
+                if (!isOverlayEnabledInPrefs || !isOverlayEnabledInSettings) {
+                    reelCounterHandler?.removeOverlay()
+                }
             }
         }
 
@@ -70,6 +79,8 @@ class GuardianAccessibilityService : AccessibilityService() {
             AppBlockHandler.ActionPerformer { action: Int -> this.performGlobalAction(action) })
         reelCounterHandler = ReelCounterHandler(this)
         websiteUsageHandler = WebsiteUsageHandler(this)
+        websiteBlockHandler = WebsiteBlockHandler(this)
+        browserBlocker = BrowserBlocker(this)
         
         // Use existing tracker if available, otherwise setup a new one
         appUsageTracker = AppUsageTracker.instance ?: AppUsageTracker().apply { setup(this@GuardianAccessibilityService) }
@@ -93,6 +104,8 @@ class GuardianAccessibilityService : AccessibilityService() {
         appUsageTracker = null
         reelCounterHandler = null
         websiteUsageHandler = null
+        websiteBlockHandler = null
+        browserBlocker = null
         instance = null
         Log.w(TAG, "Service destroyed")
     }
@@ -161,13 +174,16 @@ class GuardianAccessibilityService : AccessibilityService() {
             }
 
             checkAndRecheckShorts(root, pkg)
-            reelCounterHandler?.handleEvent(root, pkg)
+            reelCounterHandler?.handleEvent(root, pkg, settings)
             websiteUsageHandler?.handleEvent(root, pkg, settings.isWebsiteUsageTrackingEnabled)
-            appBlockHandler?.handle(root, pkg, eventType, settings)
+            val isWebBlocked = websiteBlockHandler?.handle(root, pkg, settings) { performGlobalAction(it) } ?: false
+            if (!isWebBlocked) {
+                appBlockHandler?.handle(root, pkg, eventType, settings)
+            }
         } else {
             Log.d(TAG, "processEvent: rootInActiveWindow is null for $pkg")
             checkAndRecheckShorts(null, pkg)
-            reelCounterHandler?.handleEvent(null, pkg)
+            reelCounterHandler?.handleEvent(null, pkg, settings)
             websiteUsageHandler?.handleEvent(null, pkg, settings.isWebsiteUsageTrackingEnabled)
         }
     }

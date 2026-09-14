@@ -37,7 +37,7 @@ import kotlin.concurrent.Volatile
         WebsiteStatsEntity::class,
         AppGroupEntity::class
     ],
-    version = 7,
+    version = 9,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

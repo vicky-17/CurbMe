@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class AppBlockRule(
     @PrimaryKey val packageName: String,
     val appName: String,
+    val iconPath: String? = null,
     val planType: String, // STAY_FOCUSED, TIME_LIMIT, HABIT_TRAINING, SCREEN_BREAK
 
     // Time Limit Fields

@@ -62,6 +62,10 @@ class SecurityViewModel(
     private val _isApplyingPrivateDns = MutableStateFlow(false)
     val isApplyingPrivateDns: StateFlow<Boolean> = _isApplyingPrivateDns.asStateFlow()
 
+    // ── Private DNS "lock settings" state ─────────────────────────────────────
+    private val _isPrivateDnsLocked = MutableStateFlow(false)
+    val isPrivateDnsLocked: StateFlow<Boolean> = _isPrivateDnsLocked.asStateFlow()
+
     // ── Banking Mode States ──────────────────────────────────────────────────
     private val _isBankingBypassEnabled = MutableStateFlow(false)
     val isBankingBypassEnabled: StateFlow<Boolean> = _isBankingBypassEnabled.asStateFlow()
@@ -82,7 +86,8 @@ class SecurityViewModel(
     private val _privateDnsError = MutableStateFlow<String?>(null)
     val privateDnsError: StateFlow<String?> = _privateDnsError.asStateFlow()
 
-
+    private val _deviceOwnerError = MutableStateFlow<String?>(null)
+    val deviceOwnerError: StateFlow<String?> = _deviceOwnerError.asStateFlow()
 
     data class AppInfo(
         val packageName: String,
@@ -91,6 +96,16 @@ class SecurityViewModel(
         val isUninstallBlocked: Boolean,
         val isForceStopBlocked: Boolean
     )
+
+    data class AppConfirmData(
+        val packageName: String,
+        val type: AppProtectionType,
+        val appName: String
+    )
+    enum class AppProtectionType { UNINSTALL, FORCE_STOP }
+
+    private val _showAppConfirmDialog = MutableStateFlow<AppConfirmData?>(null)
+    val showAppConfirmDialog: StateFlow<AppConfirmData?> = _showAppConfirmDialog.asStateFlow()
 
     private val _installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
     val installedApps: StateFlow<List<AppInfo>> = _installedApps.asStateFlow()
@@ -136,6 +151,7 @@ class SecurityViewModel(
             refreshShizukuState()
         }
         refreshShizukuState()
+        refreshPrivateDnsState()
 
         viewModelScope.launch {
             dataStoreManager.settings.collect {
@@ -169,9 +185,6 @@ class SecurityViewModel(
             refreshShizukuState()
         }
     }
-
-    private val _deviceOwnerError = MutableStateFlow<String?>(null)
-    val deviceOwnerError: StateFlow<String?> = _deviceOwnerError.asStateFlow()
 
     fun promoteDeviceOwner() {
         _deviceOwnerError.value = null
@@ -236,16 +249,6 @@ class SecurityViewModel(
     }
 
     // ── App Protection Confirmation ──────────────────────────────────────────
-    data class AppConfirmData(
-        val packageName: String,
-        val type: AppProtectionType,
-        val appName: String
-    )
-    enum class AppProtectionType { UNINSTALL, FORCE_STOP }
-
-    private val _showAppConfirmDialog = MutableStateFlow<AppConfirmData?>(null)
-    val showAppConfirmDialog: StateFlow<AppConfirmData?> = _showAppConfirmDialog.asStateFlow()
-
     fun clearPrivateDnsError() {
         _privateDnsError.value = null
     }
@@ -380,15 +383,6 @@ class SecurityViewModel(
 
     fun dismissDialog() {
         _showConfirmDialog.value = false
-    }
-
-
-    // ── Private DNS "lock settings" state ─────────────────────────────────────
-    private val _isPrivateDnsLocked = MutableStateFlow(false)
-    val isPrivateDnsLocked: StateFlow<Boolean> = _isPrivateDnsLocked.asStateFlow()
-
-    init {
-        refreshPrivateDnsState()
     }
 
     /**

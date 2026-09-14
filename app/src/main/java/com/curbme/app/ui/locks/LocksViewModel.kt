@@ -7,8 +7,13 @@ import android.graphics.drawable.Drawable
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.curbme.app.core.utils.AppIconManager
+import com.curbme.app.core.utils.TimeUtils
+import com.curbme.app.data.local.db.AppDatabase
 import com.curbme.app.data.local.db.dao.AppBlockDao
 import com.curbme.app.data.local.db.entity.AppBlockRule
+import com.curbme.app.data.local.db.entity.WebsiteStatsEntity
+import com.curbme.app.data.local.prefs.DataStoreManager
 import com.curbme.app.data.local.prefs.PrefsManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -85,9 +90,14 @@ class LocksViewModel(
     private val _wizardState = MutableStateFlow(WizardState())
     val wizardState = _wizardState.asStateFlow()
 
-    // Website states (Keep for now)
+    // Website states
     private val _blockedWebsites = MutableStateFlow(prefs.blockedWebsites)
     val blockedWebsites = _blockedWebsites.asStateFlow()
+
+    private val db = AppDatabase.getDatabase(context)
+    val visitedWebsites: StateFlow<List<WebsiteStatsEntity>> =
+        db.websiteStatsDao().getForDateFlow(TimeUtils.todayKey())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         loadApps()
@@ -220,6 +230,10 @@ class LocksViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val rules = state.selectedPackages.map { pkg ->
                 val app = _installedApps.value.find { it.packageName == pkg }
+                val iconPath = app?.icon?.let { drawable ->
+                    AppIconManager.saveAppIcon(context, pkg, drawable)
+                }
+
                 val activeDaysMask = if (state.timingMode == "WEEKLY") {
                     var mask = 0
                     state.selectedDays.forEach { mask = mask or (1 shl (it - 1)) }
@@ -235,6 +249,7 @@ class LocksViewModel(
                 AppBlockRule(
                     packageName = pkg,
                     appName = app?.name ?: "Unknown App",
+                    iconPath = iconPath,
                     planType = state.planType,
                     allowedMinutes = state.allowedMinutes,
                     intervalMinutes = state.intervalMinutes,
@@ -265,6 +280,7 @@ class LocksViewModel(
                 }
                 return@launch
             }
+            AppIconManager.deleteSavedIcon(context, packageName)
             appBlockDao.deleteRuleByPackage(packageName)
         }
     }
@@ -280,25 +296,50 @@ class LocksViewModel(
                 }
                 return@launch
             }
+            rules.forEach { rule ->
+                AppIconManager.deleteSavedIcon(context, rule.packageName)
+            }
             appBlockDao.deleteRulesByPlanName(planName)
         }
     }
 
     // --- Website Actions ---
 
+    private val dataStoreManager = DataStoreManager(context)
+
     fun addWebsite(domain: String) {
         val cleaned = domain.trim().lowercase()
             .removePrefix("http://")
             .removePrefix("https://")
             .removePrefix("www.")
+            .trimEnd('/')
         if (cleaned.isNotEmpty()) {
             prefs.addBlockedWebsite(cleaned)
             _blockedWebsites.value = prefs.blockedWebsites
+            viewModelScope.launch {
+                dataStoreManager.updateSettings { current ->
+                    val updated = current.blockedWebsites.toMutableSet()
+                    updated.add(cleaned)
+                    current.copy(blockedWebsites = updated)
+                }
+            }
         }
     }
 
     fun removeWebsite(domain: String) {
         prefs.removeBlockedWebsite(domain)
         _blockedWebsites.value = prefs.blockedWebsites
+        viewModelScope.launch {
+            dataStoreManager.updateSettings { current ->
+                val updated = current.blockedWebsites.toMutableSet()
+                updated.remove(domain)
+                current.copy(blockedWebsites = updated)
+            }
+        }
+    }
+
+    fun lockVisitedWebsite(domain: String) {
+        addWebsite(domain)
+        Toast.makeText(context, "Locked $domain", Toast.LENGTH_SHORT).show()
     }
 }

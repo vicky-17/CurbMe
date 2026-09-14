@@ -37,6 +37,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.unit.sp
 import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.data.local.db.AppDatabase // Add this
+import com.curbme.app.core.utils.AppIconManager
 import com.curbme.app.data.local.db.entity.AppBlockRule // Add this
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModel
@@ -44,6 +45,7 @@ import androidx.lifecycle.ViewModelProvider
 import coil.compose.rememberAsyncImagePainter
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -72,12 +74,14 @@ fun LocksScreen(prefs: PrefsManager) {
     val activeRules by viewModel.activeRules.collectAsState()
     val wizardState by viewModel.wizardState.collectAsState()
     val websites by viewModel.blockedWebsites.collectAsState()
+    val visitedWebsites by viewModel.visitedWebsites.collectAsState()
 
     val groupedRules by remember(activeRules) {
         derivedStateOf { activeRules.groupBy { it.planName.ifBlank { "Unnamed Plan" } } }
     }
 
     var showWizard by remember { mutableStateOf(value = false) }
+    var showAddWebsiteDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
         confirmValueChange = { newValue ->
             // Return false to prevent the sheet from being hidden via gestures
@@ -150,25 +154,91 @@ fun LocksScreen(prefs: PrefsManager) {
 
             } else {
                 // ── Websites Tab ──────────────────────────────────────────────
-                if (websites.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No blocked websites yet", color = TextSecond)
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    // Section 1: Blocked Websites
+                    item {
+                        Text(
+                            text = "Blocked Websites (${websites.size})",
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                        )
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 80.dp)
-                    ) {
+
+                    if (websites.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No blocked websites yet", color = TextSecond, fontSize = 14.sp)
+                            }
+                        }
+                    } else {
                         items(websites.toList()) { domain ->
                             WebsiteLockItem(domain = domain) {
                                 viewModel.removeWebsite(domain)
                             }
                         }
                     }
+
+                    // Section 2: Web History & Instant Lock
+                    item {
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.History,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Web History (${visitedWebsites.size})",
+                                color = TextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    val recentSites = visitedWebsites.distinctBy { it.domain.lowercase() }
+                    if (recentSites.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No web history recorded today", color = TextSecond, fontSize = 14.sp)
+                            }
+                        }
+                    } else {
+                        items(recentSites) { site ->
+                            val isAlreadyBlocked = websites.contains(site.domain.lowercase())
+                            WebsiteHistoryItem(
+                                domain = site.domain,
+                                isBlocked = isAlreadyBlocked,
+                                onLock = { viewModel.lockVisitedWebsite(site.domain) }
+                            )
+                        }
+                    }
                 }
 
                 FloatingActionButton(
-                    onClick = { /* Implement website dialog if needed */ },
+                    onClick = { showAddWebsiteDialog = true },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(24.dp),
@@ -196,6 +266,16 @@ fun LocksScreen(prefs: PrefsManager) {
                     }
                 }
             }
+        }
+
+        if (showAddWebsiteDialog) {
+            AddWebsiteDialog(
+                onDismiss = { showAddWebsiteDialog = false },
+                onConfirm = { domain ->
+                    viewModel.addWebsite(domain)
+                    showAddWebsiteDialog = false
+                }
+            )
         }
     }
 }
@@ -287,11 +367,17 @@ private fun ActivePlanCard(planName: String, rules: List<AppBlockRule>, isEnforc
                                 .clip(CircleShape)
                                 .background(Color.White.copy(alpha = 0.05f))
                         ) {
-                            val icon = remember(rule.packageName) {
-                                try {
-                                    context.packageManager.getApplicationIcon(rule.packageName)
-                                } catch (e: Exception) {
-                                    null
+                            val icon = remember(rule.packageName, rule.iconPath) {
+                                val savedFile = rule.iconPath?.let { File(it) }
+                                    ?: AppIconManager.getSavedIconFile(context, rule.packageName)
+                                if (savedFile?.exists() == true) {
+                                    savedFile
+                                } else {
+                                    try {
+                                        context.packageManager.getApplicationIcon(rule.packageName)
+                                    } catch (e: Exception) {
+                                        null
+                                    }
                                 }
                             }
                             Image(
@@ -350,11 +436,17 @@ private fun ActivePlanCard(planName: String, rules: List<AppBlockRule>, isEnforc
                                 .padding(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val icon = remember(rule.packageName) {
-                                try {
-                                    context.packageManager.getApplicationIcon(rule.packageName)
-                                } catch (e: Exception) {
-                                    null
+                            val icon = remember(rule.packageName, rule.iconPath) {
+                                val savedFile = rule.iconPath?.let { File(it) }
+                                    ?: AppIconManager.getSavedIconFile(context, rule.packageName)
+                                if (savedFile?.exists() == true) {
+                                    savedFile
+                                } else {
+                                    try {
+                                        context.packageManager.getApplicationIcon(rule.packageName)
+                                    } catch (e: Exception) {
+                                        null
+                                    }
                                 }
                             }
                             Image(
@@ -1470,12 +1562,125 @@ private fun WebsiteLockItem(domain: String, onDelete: () -> Unit) {
     }
 }
 
-/*
+@Composable
+private fun WebsiteHistoryItem(
+    domain: String,
+    isBlocked: Boolean,
+    onLock: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Language,
+            contentDescription = null,
+            tint = AccentCyan,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = domain,
+            color = TextPrimary,
+            fontSize = 14.sp,
+            modifier = Modifier.weight(1f)
+        )
+        if (isBlocked) {
+            Surface(
+                color = AccentCyan.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Locked",
+                    color = AccentCyan,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        } else {
+            Button(
+                onClick = onLock,
+                colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Lock,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = Color.White
+                )
+                Spacer(Modifier.width(4.dp))
+                Text("+ Lock", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
 @Composable
 private fun AddWebsiteDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
-...
+    var text by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = CardBg,
+        title = {
+            Text(
+                text = "Add Blocked Website / Keyword",
+                color = TextPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Enter domain, wildcard (e.g. *.reddit.com), or URL path (e.g. /shorts):",
+                    color = TextSecond,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    placeholder = { Text("e.g. youtube.com/shorts or twitter.com", color = TextSecond.copy(alpha = 0.5f)) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = TextSecond.copy(alpha = 0.2f),
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (text.isNotBlank()) {
+                        onConfirm(text.trim())
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+            ) {
+                Text("Add", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextSecond)
+            }
+        }
+    )
 }
-*/
 
 @Preview(showBackground = true, backgroundColor = 0xFF080E1A)
 @Composable

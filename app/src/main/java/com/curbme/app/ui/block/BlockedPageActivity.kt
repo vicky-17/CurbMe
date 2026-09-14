@@ -59,6 +59,14 @@ class BlockedPageActivity : ComponentActivity() {
                 .putExtra(EXTRA_SEVERITY, "CRITICAL")
                 .putExtra(EXTRA_SETTINGS_ACTION, ACTION_NONE)
 
+        fun websiteBlock(context: Context, domainOrUrl: String): Intent =
+            base(context)
+                .putExtra(EXTRA_EMOJI,    "🌐")
+                .putExtra(EXTRA_TITLE,    "Website Blocked")
+                .putExtra(EXTRA_MESSAGE,  "Access to '$domainOrUrl' is restricted.")
+                .putExtra(EXTRA_SEVERITY, "CRITICAL")
+                .putExtra(EXTRA_SETTINGS_ACTION, ACTION_NONE)
+
         fun anotherVpnActive(context: Context): Intent =
             base(context)
                 .putExtra(EXTRA_EMOJI,    "⚠️")

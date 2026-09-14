@@ -121,21 +121,21 @@ class DataStoreManager(private val context: Context) {
     }
 
     suspend fun setPrivateDnsEnabled(enabled: Boolean) {
-        dataStore.updateData { it.copy(isPrivateDnsEnabled = enabled) }
         val prefs = PrefsManager(context)
         prefs.isPrivateDnsEnabled = enabled
+        dataStore.updateData { it.copy(isPrivateDnsEnabled = enabled) }
     }
 
     suspend fun setSelectedPrivateDnsHostname(hostname: String) {
-        dataStore.updateData { it.copy(selectedPrivateDnsHostname = hostname) }
         val prefs = PrefsManager(context)
         prefs.selectedPrivateDnsHostname = hostname
+        dataStore.updateData { it.copy(selectedPrivateDnsHostname = hostname) }
     }
 
     suspend fun setPrivateDnsLocked(locked: Boolean) {
-        dataStore.updateData { it.copy(isPrivateDnsLocked = locked) }
         val prefs = PrefsManager(context)
         prefs.isPrivateDnsLocked = locked
+        dataStore.updateData { it.copy(isPrivateDnsLocked = locked) }
     }
 
     suspend fun resetAllSettings() {

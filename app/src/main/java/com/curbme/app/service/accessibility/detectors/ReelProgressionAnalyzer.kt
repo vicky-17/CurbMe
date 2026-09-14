@@ -17,12 +17,13 @@ class ReelProgressionAnalyzer {
      */
     fun checkReelProgression(packageName: String, currentText: String): Boolean {
         if (currentText.isBlank()) return false
+        if (isGenericMarker(currentText)) return false
 
         val previousText = lastDynamicText[packageName] ?: ""
         if (currentText == previousText) return false
 
         val isSubstantialChange = isSubstantialTextChange(currentText, previousText)
-        if (previousText.isNotEmpty() && isSubstantialChange) {
+        if (isSubstantialChange) {
             val appCache = seenReelsCache.getOrPut(packageName) { LruCache(50) }
             if (appCache.get(currentText) == null) {
                 appCache.put(currentText, true)
@@ -36,6 +37,14 @@ class ReelProgressionAnalyzer {
         }
 
         return false
+    }
+
+    private fun isGenericMarker(text: String): Boolean {
+        return text == "youtube_shorts_active" ||
+                text == "instagram_reel_active" ||
+                text == "snapchat_spotlight_active" ||
+                text == "facebook_reel_active" ||
+                text == "tiktok_active"
     }
 
     /** Clears tracked state for package or all packages. */
