@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.curbme.app.core.utils.Constants
 import com.curbme.app.core.utils.UiDumper.dumpAll
 import com.curbme.app.data.local.prefs.DataStoreManager
 import com.curbme.app.data.local.prefs.PrefsManager
@@ -23,6 +24,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.Volatile
 
 class GuardianAccessibilityService : AccessibilityService() {
@@ -47,6 +49,14 @@ class GuardianAccessibilityService : AccessibilityService() {
     private var websiteUsageHandler: WebsiteUsageHandler? = null
     private var websiteBlockHandler: WebsiteBlockHandler? = null
     private var browserBlocker: BrowserBlocker? = null
+
+    private val browserCapabilityCache = ConcurrentHashMap<String, Boolean>()
+
+    fun isBrowserSupported(packageName: String): Boolean {
+        return browserCapabilityCache.getOrPut(packageName) {
+            Constants.BrowserConstants.SUPPORTED_BROWSERS.contains(packageName)
+        }
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()

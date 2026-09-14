@@ -65,4 +65,20 @@ object Constants {
     const val ALLOW_VPN: String = "vpn"
     const val ALLOW_NOTIFICATIONS: String = "notifications"
     const val ALLOW_AUTOSTART: String = "autostart"
+
+    // ── Browser Constants ─────────────────────────────────────────────────────
+    object BrowserConstants {
+        const val CHROME = "com.android.chrome"
+        const val FIREFOX = "org.mozilla.firefox"
+        const val EDGE = "com.microsoft.emmx"
+        const val OPERA = "com.opera.browser"
+        const val SAMSUNG_INTERNET = "com.sec.android.app.sbrowser"
+        const val BRAVE = "com.brave.browser"
+        const val TOR = "org.torproject.torbrowser"
+        const val TOR_ALPHA = "org.torproject.torbrowser_alpha"
+
+        val SUPPORTED_BROWSERS = listOf(
+            CHROME, FIREFOX, EDGE, OPERA, SAMSUNG_INTERNET, BRAVE, TOR, TOR_ALPHA
+        )
+    }
 }

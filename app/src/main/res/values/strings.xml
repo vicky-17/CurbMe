@@ -57,6 +57,12 @@
     <string name="blocked_page_message">⚠️ This page is blocked. ⚠️</string>
     <string name="blocked_page_go_home">Go to Home</string>
 
+    <string name="unsupported_browser_fallback">Fallback Browser Blocking</string>
+    <string name="unsupported_browser_fallback_desc">Enable DNS blocking for unsupported browsers</string>
+    <string name="unsupported_browser_warning">⚠️ If enabled, all unsupported browsers will be blocked via DNS.</string>
+    <string name="tor_browser_tracking_enabled">Tor Browser tracking enabled</string>
+    <string name="tor_browser_not_installed">Tor Browser not installed</string>
+
 
 
 </resources>

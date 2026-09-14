@@ -174,4 +174,10 @@ class DataStoreManager(private val context: Context) {
         val prefs = PrefsManager(context)
         prefs.isBlockShorts = enabled
     }
+
+    suspend fun setBlockUnsupportedBrowsers(enabled: Boolean) {
+        dataStore.updateData { it.copy(isBlockUnsupportedBrowsers = enabled) }
+        val prefs = PrefsManager(context)
+        prefs.isBlockUnsupportedBrowsers = enabled
+    }
 }

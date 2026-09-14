@@ -180,6 +180,12 @@ class PrefsManager(context: Context) {
             prefs.edit { putBoolean("youtube_filter_enabled", value) }
         }
 
+    var isBlockUnsupportedBrowsers: Boolean
+        get() = prefs.getBoolean("block_unsupported_browsers", false)
+        set(value) {
+            prefs.edit { putBoolean("block_unsupported_browsers", value) }
+        }
+
     var isAutoHealEnabled: Boolean
         get() = prefs.getBoolean(KEY_AUTO_HEAL_ENABLED, true)
         set(value) {

@@ -3,6 +3,7 @@ package com.curbme.app.service.accessibility.detectors
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import com.curbme.app.BuildConfig
+import com.curbme.app.core.utils.Constants.BrowserConstants
 import java.net.URI
 import java.util.Locale
 
@@ -19,24 +20,26 @@ object BrowserUrlReader {
     )
 
     private val BROWSER_URL_BAR_IDS: Map<String, List<String>> = mapOf(
-        "com.android.chrome" to listOf("url_bar", "location_bar"),
+        BrowserConstants.CHROME to listOf("url_bar", "location_bar"),
         "com.chrome.beta" to listOf("url_bar", "location_bar"),
         "com.chrome.canary" to listOf("url_bar", "location_bar"),
         "com.chrome.dev" to listOf("url_bar", "location_bar"),
-        "com.brave.browser" to listOf("url_bar", "location_bar"),
-        "org.mozilla.firefox" to listOf("mozac_browser_toolbar_url_view", "url_bar_title", "url_bar_text"),
+        BrowserConstants.BRAVE to listOf("url_bar", "location_bar"),
+        BrowserConstants.FIREFOX to listOf("mozac_browser_toolbar_url_view", "url_bar_title", "url_bar_text"),
         "org.mozilla.firefox_beta" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
         "org.mozilla.fenix" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
         "org.mozilla.focus" to listOf("mozac_browser_toolbar_url_view"),
-        "com.microsoft.emmx" to listOf("url_bar", "search_box"),
-        "com.sec.android.app.sbrowser" to listOf("location_bar_edit_text", "url_bar"),
-        "com.opera.browser" to listOf("url_field", "url_bar"),
+        BrowserConstants.EDGE to listOf("url_bar", "search_box"),
+        BrowserConstants.SAMSUNG_INTERNET to listOf("location_bar_edit_text", "url_bar"),
+        BrowserConstants.OPERA to listOf("url_field", "url_bar"),
         "com.opera.mini.native" to listOf("url_field", "url_bar"),
         "com.vivaldi.browser" to listOf("url_bar", "location_bar"),
         "com.kiwibrowser.browser" to listOf("url_bar", "location_bar"),
         "com.duckduckgo.mobile.android" to listOf("omnibar_text_input", "search_box"),
         "org.cromite.cromite" to listOf("url_bar"),
-        "app.vanadium.browser" to listOf("url_bar")
+        "app.vanadium.browser" to listOf("url_bar"),
+        BrowserConstants.TOR to listOf("mozac_browser_toolbar_url_view", "url_bar_title", "url_bar_text"),
+        BrowserConstants.TOR_ALPHA to listOf("mozac_browser_toolbar_url_view", "url_bar_title", "url_bar_text")
     )
 
     fun isSupportedBrowser(packageName: String): Boolean {
@@ -97,6 +100,33 @@ object BrowserUrlReader {
         return null
     }
 
+    fun isOnChromeHome(rootNode: AccessibilityNodeInfo?): Boolean {
+        if (rootNode == null) return false
+        val className = rootNode.className?.toString().orEmpty()
+        if (className.contains("NtpActivity", ignoreCase = true) || className.contains("StartSurface", ignoreCase = true)) {
+            return true
+        }
+        val ntpNodes = rootNode.findAccessibilityNodeInfosByViewId("com.android.chrome:id/search_box_text")
+        if (!ntpNodes.isNullOrEmpty()) {
+            ntpNodes.forEach { @Suppress("DEPRECATION") it.recycle() }
+            return true
+        }
+        return false
+    }
+
+    fun isMereShortcutClick(rootNode: AccessibilityNodeInfo?, packageName: String): Boolean {
+        if (packageName == BrowserConstants.CHROME) {
+            if (isOnChromeHome(rootNode)) {
+                val activeUrlBar = rootNode?.findAccessibilityNodeInfosByViewId("com.android.chrome:id/url_bar")
+                if (activeUrlBar.isNullOrEmpty()) {
+                    return true
+                }
+                activeUrlBar.forEach { @Suppress("DEPRECATION") it.recycle() }
+            }
+        }
+        return false
+    }
+
     /**
      * Legacy helper extracting only the domain.
      */
@@ -105,6 +135,14 @@ object BrowserUrlReader {
     }
 
     private fun filterOutUrlFromPlainText(inputText: String): String? {
+        val trimmed = inputText.trim()
+        if (trimmed.startsWith("chrome://", ignoreCase = true) ||
+            trimmed.startsWith("chrome-native://", ignoreCase = true) ||
+            trimmed.startsWith("about:", ignoreCase = true)
+        ) {
+            return null
+        }
+
         val urlRegex = Regex(
             pattern = """(?:https?://|www\.)?[^\s<>\"']+""",
             option = RegexOption.IGNORE_CASE

@@ -6,12 +6,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.curbme.app.R
 import com.curbme.app.core.utils.TimeUtils
 import com.curbme.app.data.local.db.AppDatabase
 import com.curbme.app.data.local.db.entity.WebsiteStatsEntity
@@ -24,18 +28,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * ContentFilterScreen remains in Kotlin.
- * It controls the Java-based DNS filtering and VPN settings.
+ * ContentFilterScreen controls DNS/VPN filtering, website usage, and advanced browser protection.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContentFilterScreen() {
     val context = LocalContext.current
     val prefs = remember { PrefsManager(context.applicationContext) }
+    val dataStoreManager = remember { DataStoreManager(context.applicationContext) }
+    val viewModel = remember { ContentFilterViewModel(prefs, dataStoreManager, context.applicationContext) }
 
-    // UI State for toggles, synced with Java PrefsManager
+    // UI State for toggles
     var isSafeSearchEnabled by remember { mutableStateOf(prefs.isSafeSearchEnabled) }
     var isYoutubeFilterEnabled by remember { mutableStateOf(prefs.isYoutubeFilterEnabled) }
+    var isFallbackEnabled by remember { mutableStateOf(prefs.isBlockUnsupportedBrowsers) }
+
+    val isTorInstalled by viewModel.isTorBrowserInstalled.collectAsState(false)
 
     // Security State
     var showPinDialog by remember { mutableStateOf(false) }
@@ -75,13 +83,13 @@ fun ContentFilterScreen() {
             SectionLabel("Web Protection")
 
             ToggleCard(
-                emoji ="🌐",
+                emoji = "🌐",
                 title = "Enforce Safe Search",
                 subtitle = "Forces Google, Bing, and DuckDuckGo into strict filtering mode.",
                 isEnabled = isSafeSearchEnabled,
                 onToggle = { newValue ->
                     pendingToggle = {
-                        prefs.isSafeSearchEnabled = newValue
+                        viewModel.setSafeSearchEnabled(newValue)
                         isSafeSearchEnabled = newValue
                     }
                     showPinDialog = true
@@ -99,12 +107,80 @@ fun ContentFilterScreen() {
                 isEnabled = isYoutubeFilterEnabled,
                 onToggle = { newValue ->
                     pendingToggle = {
-                        prefs.isYoutubeFilterEnabled = newValue
+                        viewModel.setYoutubeFilterEnabled(newValue)
                         isYoutubeFilterEnabled = newValue
                     }
                     showPinDialog = true
                 }
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SectionLabel("Advanced Browser Protection")
+
+            ToggleCard(
+                emoji = "🛡️",
+                title = stringResource(R.string.unsupported_browser_fallback),
+                subtitle = stringResource(R.string.unsupported_browser_fallback_desc),
+                isEnabled = isFallbackEnabled,
+                onToggle = { newValue ->
+                    pendingToggle = {
+                        viewModel.setUnsupportedBrowserFallback(newValue)
+                        isFallbackEnabled = newValue
+                    }
+                    showPinDialog = true
+                }
+            )
+
+            if (isFallbackEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF451A03)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.unsupported_browser_warning),
+                        color = Color(0xFFFDBA74),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Tor Status Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = if (isTorInstalled) Color(0xFF22C55E) else Color(0xFFEAB308)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Tor Browser Support",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            text = if (isTorInstalled)
+                                stringResource(R.string.tor_browser_tracking_enabled)
+                            else
+                                stringResource(R.string.tor_browser_not_installed),
+                            color = if (isTorInstalled) Color(0xFF4ADE80) else Color(0xFFFDE047),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -125,15 +201,13 @@ fun ContentFilterScreen() {
                 isTrackingEnabled = isWebTrackingEnabled,
                 onToggleTracking = { newValue ->
                     isWebTrackingEnabled = newValue
-                    val dataStore = DataStoreManager(context)
                     scope.launch(Dispatchers.IO) {
-                        dataStore.updateSettings { it.copy(isWebsiteUsageTrackingEnabled = newValue) }
+                        dataStoreManager.updateSettings { it.copy(isWebsiteUsageTrackingEnabled = newValue) }
                     }
                 },
                 onBlockDomain = { domain ->
-                    val dataStore = DataStoreManager(context)
                     scope.launch(Dispatchers.IO) {
-                        dataStore.updateSettings { it.copy(blockedWebsites = it.blockedWebsites + domain) }
+                        dataStoreManager.updateSettings { it.copy(blockedWebsites = it.blockedWebsites + domain) }
                     }
                 }
             )
@@ -149,7 +223,7 @@ fun ContentFilterScreen() {
                     Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF3B82F6))
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        "These filters apply system-wide using a local VPN tunnel.",
+                        text = "These filters apply system-wide using a local VPN tunnel.",
                         color = Color(0xFF94A3B8),
                         style = MaterialTheme.typography.bodySmall
                     )

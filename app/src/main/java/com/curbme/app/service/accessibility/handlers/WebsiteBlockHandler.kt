@@ -29,6 +29,7 @@ class WebsiteBlockHandler(private val context: Context) {
         performGlobalAction: (Int) -> Boolean
     ): Boolean {
         if (packageName.isBlank()) return false
+        if (BrowserUrlReader.isMereShortcutClick(rootNode, packageName)) return false
         val siteInfo = BrowserUrlReader.readSiteInfo(rootNode, packageName) ?: return false
 
         val isBlocked = isWebsiteBlocked(siteInfo.domain, siteInfo.urlIdentifier, settings)

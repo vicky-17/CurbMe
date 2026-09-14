@@ -1,7 +1,9 @@
 package com.curbme.app
 
+import com.curbme.app.core.utils.Constants.BrowserConstants
 import com.curbme.app.core.utils.KeywordMatcher
 import com.curbme.app.data.local.prefs.Settings
+import com.curbme.app.service.accessibility.detectors.BrowserUrlReader
 import com.curbme.app.service.vpn.DnsFilterEngine
 import com.curbme.app.service.vpn.FilterDecision
 import org.junit.Assert.*
@@ -60,5 +62,30 @@ class ExampleUnitTest {
         // Allowed domains
         assertEquals(FilterDecision.Allow, engine.decide("wikipedia.org", 1, settings))
         assertEquals(FilterDecision.Allow, engine.decide("notyoutube.com", 1, settings))
+    }
+
+    @Test
+    fun testTorBrowserAndSupportedBrowsers() {
+        assertTrue(BrowserConstants.SUPPORTED_BROWSERS.contains("org.torproject.torbrowser"))
+        assertTrue(BrowserUrlReader.isSupportedBrowser("org.torproject.torbrowser"))
+        assertTrue(BrowserUrlReader.isSupportedBrowser("com.android.chrome"))
+        assertTrue(BrowserUrlReader.isSupportedBrowser("org.mozilla.firefox"))
+    }
+
+    @Test
+    fun testFallbackDnsEnforcement() {
+        val engine = DnsFilterEngine()
+        val settingsOn = Settings(isBlockUnsupportedBrowsers = true)
+        val settingsOff = Settings(isBlockUnsupportedBrowsers = false)
+
+        // Supported browser should return false for fallback enforcement
+        assertFalse(engine.shouldEnforceDnsBlockingForBrowser(BrowserConstants.CHROME, settingsOn))
+        assertFalse(engine.shouldEnforceDnsBlockingForBrowser(BrowserConstants.TOR, settingsOn))
+
+        // Unknown browser should return true when fallback is ON
+        assertTrue(engine.shouldEnforceDnsBlockingForBrowser("com.unknown.browser", settingsOn))
+
+        // Unknown browser should return false when fallback is OFF
+        assertFalse(engine.shouldEnforceDnsBlockingForBrowser("com.unknown.browser", settingsOff))
     }
 }

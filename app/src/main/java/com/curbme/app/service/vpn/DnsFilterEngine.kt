@@ -2,6 +2,7 @@ package com.curbme.app.service.vpn
 
 import android.util.Log
 import com.curbme.app.BuildConfig
+import com.curbme.app.core.utils.Constants
 import com.curbme.app.core.utils.KeywordMatcher
 import com.curbme.app.data.local.prefs.Settings
 import com.curbme.app.service.vpn.blocklist.PornDomainBlocklist.isBlocked
@@ -63,6 +64,11 @@ class DnsFilterEngine {
         }
 
         return FilterDecision.Allow
+    }
+
+    fun shouldEnforceDnsBlockingForBrowser(packageName: String, settings: Settings): Boolean {
+        val isSupported = Constants.BrowserConstants.SUPPORTED_BROWSERS.contains(packageName)
+        return !isSupported && settings.isBlockUnsupportedBrowsers
     }
 
     private fun isCustomBlocked(rawDomain: String?, settings: Settings): Boolean {
