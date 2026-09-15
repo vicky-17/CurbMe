@@ -198,6 +198,12 @@ class PrefsManager(context: Context) {
             prefs.edit { putLong("website_strict_mode_until", value) }
         }
 
+    var isOnlineAdultCheckEnabled: Boolean
+        get() = prefs.getBoolean("online_adult_check_enabled", false)
+        set(value) {
+            prefs.edit { putBoolean("online_adult_check_enabled", value) }
+        }
+
     var isAutoHealEnabled: Boolean
         get() = prefs.getBoolean(KEY_AUTO_HEAL_ENABLED, true)
         set(value) {

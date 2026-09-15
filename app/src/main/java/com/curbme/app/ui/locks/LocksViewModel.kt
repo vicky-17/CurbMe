@@ -109,6 +109,10 @@ class LocksViewModel(
         .map { it.isBlockUnsupportedBrowsers }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val isOnlineAdultCheckEnabled: StateFlow<Boolean> = dataStoreManager.settings
+        .map { it.isOnlineAdultCheckEnabled }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     private val db = AppDatabase.getDatabase(context)
     val visitedWebsites: StateFlow<List<WebsiteStatsEntity>> =
         db.websiteStatsDao().getForDateFlow(TimeUtils.todayKey())
@@ -318,6 +322,25 @@ class LocksViewModel(
         }
     }
 
+    fun addAppsToPlan(planName: String, packages: Set<String>) {
+        if (packages.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val existingRule = activeRules.value.firstOrNull { it.planName == planName } ?: return@launch
+            val newRules = packages.map { pkg ->
+                val app = _installedApps.value.find { it.packageName == pkg }
+                val iconPath = app?.icon?.let { drawable ->
+                    AppIconManager.saveAppIcon(context, pkg, drawable)
+                }
+                existingRule.copy(
+                    packageName = pkg,
+                    appName = app?.name ?: "Unknown App",
+                    iconPath = iconPath
+                )
+            }
+            appBlockDao.insertRules(newRules)
+        }
+    }
+
     // --- Website Actions ---
 
     fun addWebsite(domain: String) {
@@ -354,8 +377,59 @@ class LocksViewModel(
         }
     }
 
-    fun requestEnableStrictMode() {
-        // UI triggers duration picker dialog
+    companion object {
+        const val ADULT_BLOCK_KEY = "adult_websites_all"
+    }
+
+    fun addAdultWebsiteBlock() {
+        viewModelScope.launch {
+            dataStoreManager.updateSettings { current ->
+                val updated = current.blockedWebsites.toMutableSet()
+                updated.add(ADULT_BLOCK_KEY)
+                current.copy(
+                    blockedWebsites = updated,
+                    isOnlineAdultCheckEnabled = true
+                )
+            }
+        }
+    }
+
+    fun removeAdultWebsiteBlock() {
+        viewModelScope.launch {
+            val currentSettings = dataStoreManager.settings.first()
+            if (currentSettings.isWebsiteStrictModeActive) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Strict Mode active. Website removal is locked.", Toast.LENGTH_SHORT).show()
+                }
+                return@launch
+            }
+            dataStoreManager.updateSettings { current ->
+                val updated = current.blockedWebsites.toMutableSet()
+                updated.remove(ADULT_BLOCK_KEY)
+                current.copy(
+                    blockedWebsites = updated,
+                    isOnlineAdultCheckEnabled = false
+                )
+            }
+        }
+    }
+
+    fun clearAllWebsites() {
+        viewModelScope.launch {
+            val currentSettings = dataStoreManager.settings.first()
+            if (currentSettings.isWebsiteStrictModeActive) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Strict Mode active. Website removal is locked.", Toast.LENGTH_SHORT).show()
+                }
+                return@launch
+            }
+            dataStoreManager.updateSettings { current ->
+                current.copy(
+                    blockedWebsites = emptySet(),
+                    isOnlineAdultCheckEnabled = false
+                )
+            }
+        }
     }
 
     fun confirmStrictMode(durationMs: Long) {
@@ -374,7 +448,27 @@ class LocksViewModel(
 
     fun setBlockUnsupportedBrowsers(enabled: Boolean) {
         viewModelScope.launch {
+            val currentSettings = dataStoreManager.settings.first()
+            if (!enabled && currentSettings.isWebsiteStrictModeActive) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Strict Mode active. Disabling protection is locked.", Toast.LENGTH_SHORT).show()
+                }
+                return@launch
+            }
             dataStoreManager.setBlockUnsupportedBrowsers(enabled)
+        }
+    }
+
+    fun setOnlineAdultCheckEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentSettings = dataStoreManager.settings.first()
+            if (!enabled && currentSettings.isWebsiteStrictModeActive) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Strict Mode active. Disabling protection is locked.", Toast.LENGTH_SHORT).show()
+                }
+                return@launch
+            }
+            dataStoreManager.setOnlineAdultCheckEnabled(enabled)
         }
     }
 

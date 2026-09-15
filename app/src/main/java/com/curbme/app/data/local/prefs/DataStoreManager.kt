@@ -193,4 +193,10 @@ class DataStoreManager(private val context: Context) {
         prefs.isStrictModeEnabled = enabled
         prefs.strictModeUntil = until
     }
+
+    suspend fun setOnlineAdultCheckEnabled(enabled: Boolean) {
+        dataStore.updateData { it.copy(isOnlineAdultCheckEnabled = enabled) }
+        val prefs = PrefsManager(context)
+        prefs.isOnlineAdultCheckEnabled = enabled
+    }
 }

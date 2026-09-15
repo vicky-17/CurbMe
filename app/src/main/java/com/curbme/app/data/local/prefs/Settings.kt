@@ -56,6 +56,7 @@ data class Settings(
     val isWebsiteUsageTrackingEnabled: Boolean = true,
     val isStrictModeEnabled: Boolean = false,
     val strictModeUntil: Long = 0L,
+    val isOnlineAdultCheckEnabled: Boolean = false,
     val reelPlanConfig: ReelPlanConfig = ReelPlanConfig()
 ) {
     val isWebsiteStrictModeActive: Boolean

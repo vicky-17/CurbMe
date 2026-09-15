@@ -17,6 +17,8 @@ import com.curbme.app.data.local.db.entity.AppUsageEntity
 import com.curbme.app.data.local.db.entity.ReelStatsEntity
 import com.curbme.app.data.local.db.entity.ReelUsageStatsEntity
 import com.curbme.app.data.local.db.entity.UsageLogEntity
+import com.curbme.app.data.local.db.dao.AdultDomainDao
+import com.curbme.app.data.local.db.entity.AdultDomainEntity
 import com.curbme.app.data.local.db.entity.WebsiteStatsEntity
 import com.curbme.app.service.vpn.heartbeat.VpnHeartBeatDao
 import com.curbme.app.service.vpn.heartbeat.VpnHeartBeatEntity
@@ -35,9 +37,10 @@ import kotlin.concurrent.Volatile
         ReelStatsEntity::class,
         ReelUsageStatsEntity::class,
         WebsiteStatsEntity::class,
-        AppGroupEntity::class
+        AppGroupEntity::class,
+        AdultDomainEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -49,6 +52,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reelUsageStatsDao(): ReelUsageStatsDao
     abstract fun websiteStatsDao(): WebsiteStatsDao
     abstract fun appGroupDao(): AppGroupDao
+    abstract fun adultDomainDao(): AdultDomainDao
 
     companion object {
         @Volatile

@@ -114,4 +114,13 @@ class ExampleUnitTest {
         )
         assertFalse(disabledSettings.isWebsiteStrictModeActive)
     }
+
+    @Test
+    fun testOnlineAdultCheckerSettings() {
+        val settingsOn = Settings(isOnlineAdultCheckEnabled = true)
+        val settingsOff = Settings(isOnlineAdultCheckEnabled = false)
+
+        assertTrue(settingsOn.isOnlineAdultCheckEnabled)
+        assertFalse(settingsOff.isOnlineAdultCheckEnabled)
+    }
 }

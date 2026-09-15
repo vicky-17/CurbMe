@@ -40,13 +40,28 @@ import com.curbme.app.data.local.db.AppDatabase // Add this
 import com.curbme.app.core.utils.AppIconManager
 import com.curbme.app.data.local.db.entity.AppBlockRule // Add this
 import android.widget.Toast
+import com.curbme.app.core.utils.DomainSuggestionApi
+import kotlinx.coroutines.delay
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.curbme.app.ui.components.cards.ToggleCard
 import com.curbme.app.ui.components.dialogs.LockSettingsDialog
 import com.curbme.app.ui.sidebar.formatRemainingTime
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 import java.io.File
@@ -143,6 +158,7 @@ fun LocksScreen(prefs: PrefsManager) {
                                 planName = planName,
                                 rules = rules,
                                 isEnforced = isEnforced,
+                                viewModel = viewModel,
                                 onDelete = { viewModel.removePlan(planName) }
                             )
                         }
@@ -202,8 +218,13 @@ fun LocksScreen(prefs: PrefsManager) {
                             title = "Block Unsupported Browsers",
                             subtitle = "Blocks browsers that lack URL tracking capabilities via VPN.",
                             isEnabled = isBlockUnsupportedBrowsersEnabled,
+                            isLocked = isWebsiteStrictModeActive && isBlockUnsupportedBrowsersEnabled,
                             onToggle = { newValue ->
-                                viewModel.setBlockUnsupportedBrowsers(newValue)
+                                if (!newValue && isWebsiteStrictModeActive) {
+                                    Toast.makeText(context, "Strict Mode active. Disabling protection is locked.", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    viewModel.setBlockUnsupportedBrowsers(newValue)
+                                }
                             }
                         )
 
@@ -233,17 +254,65 @@ fun LocksScreen(prefs: PrefsManager) {
                             }
                         }
                     } else {
-                        items(websites.toList()) { domain ->
-                            WebsiteLockItem(
-                                domain = domain,
-                                isDeleteEnabled = !isWebsiteStrictModeActive
-                            ) {
-                                viewModel.removeWebsite(domain)
+                        items(websites.toList(), key = { it }) { domain ->
+                            if (domain == LocksViewModel.ADULT_BLOCK_KEY) {
+                                SpecialAdultBlockItem(
+                                    isDeleteEnabled = !isWebsiteStrictModeActive
+                                ) {
+                                    viewModel.removeAdultWebsiteBlock()
+                                }
+                            } else {
+                                WebsiteLockItem(
+                                    domain = domain,
+                                    isDeleteEnabled = !isWebsiteStrictModeActive
+                                ) {
+                                    viewModel.removeWebsite(domain)
+                                }
                             }
                         }
                     }
 
-                    // Section 2: Web History & Instant Lock
+                    // Section 2: Suggested Websites
+                    val defaultMainSuggestions = listOf(
+                        SuggestedBlock(id = LocksViewModel.ADULT_BLOCK_KEY, label = "All Adult Websites", iconUrl = null, isSpecial = true),
+                        SuggestedBlock(id = "youtube.com", label = "youtube.com", iconUrl = "https://www.google.com/s2/favicons?domain=youtube.com&sz=64"),
+                        SuggestedBlock(id = "instagram.com", label = "instagram.com", iconUrl = "https://www.google.com/s2/favicons?domain=instagram.com&sz=64"),
+                        SuggestedBlock(id = "facebook.com", label = "facebook.com", iconUrl = "https://www.google.com/s2/favicons?domain=facebook.com&sz=64"),
+                        SuggestedBlock(id = "discord.com", label = "discord.com", iconUrl = "https://www.google.com/s2/favicons?domain=discord.com&sz=64"),
+                        SuggestedBlock(id = "twitter.com", label = "twitter.com", iconUrl = "https://www.google.com/s2/favicons?domain=twitter.com&sz=64")
+                    )
+
+                    val visibleMainSuggestions = defaultMainSuggestions.filter { !websites.contains(it.id) }
+
+                    if (visibleMainSuggestions.isNotEmpty()) {
+                        item {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = "Suggested",
+                                color = TextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                            )
+                        }
+
+                        items(visibleMainSuggestions, key = { "main_sug_${it.id}" }) { suggestion ->
+                            Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                                DashedSuggestionCard(
+                                    suggestion = suggestion,
+                                    onAdd = {
+                                        if (suggestion.isSpecial) {
+                                            viewModel.addAdultWebsiteBlock()
+                                        } else {
+                                            viewModel.addWebsite(suggestion.id)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Section 3: Web History & Instant Lock
                     item {
                         Spacer(Modifier.height(16.dp))
                         Row(
@@ -324,13 +393,23 @@ fun LocksScreen(prefs: PrefsManager) {
         }
 
         if (showAddWebsiteDialog) {
-            AddWebsiteDialog(
-                onDismiss = { showAddWebsiteDialog = false },
-                onConfirm = { domain ->
-                    viewModel.addWebsite(domain)
-                    showAddWebsiteDialog = false
-                }
-            )
+            val addWebsiteSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ModalBottomSheet(
+                onDismissRequest = { showAddWebsiteDialog = false },
+                sheetState = addWebsiteSheetState,
+                containerColor = ScreenBg,
+                dragHandle = { BottomSheetDefaults.DragHandle(color = TextSecond.copy(alpha = 0.5f)) }
+            ) {
+                AddWebsiteDialog(
+                    viewModel = viewModel,
+                    isWebsiteStrictModeActive = isWebsiteStrictModeActive,
+                    onDismiss = {
+                        scope.launch { addWebsiteSheetState.hide() }.invokeOnCompletion {
+                            showAddWebsiteDialog = false
+                        }
+                    }
+                )
+            }
         }
 
         if (showStrictModeDialog) {
@@ -348,9 +427,16 @@ fun LocksScreen(prefs: PrefsManager) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ActivePlanCard(planName: String, rules: List<AppBlockRule>, isEnforced: Boolean, onDelete: () -> Unit) {
+private fun ActivePlanCard(
+    planName: String,
+    rules: List<AppBlockRule>,
+    isEnforced: Boolean,
+    viewModel: LocksViewModel,
+    onDelete: () -> Unit
+) {
     val firstRule = rules.firstOrNull() ?: return
     var isExpanded by remember { mutableStateOf(false) }
+    var showAddAppsDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     
     Card(
@@ -525,6 +611,35 @@ private fun ActivePlanCard(planName: String, rules: List<AppBlockRule>, isEnforc
                             Text(rule.packageName.split(".").lastOrNull() ?: "", color = TextSecond, fontSize = 10.sp)
                         }
                     }
+
+                    // + Add More Apps button (always enabled, even when isEnforced)
+                    OutlinedButton(
+                        onClick = { showAddAppsDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AccentCyan
+                        ),
+                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Add More Apps to Plan",
+                                color = AccentCyan,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
                 }
             }
             
@@ -553,6 +668,16 @@ private fun ActivePlanCard(planName: String, rules: List<AppBlockRule>, isEnforc
                 Text(timingText, color = TextSecond, fontSize = 11.sp)
             }
         }
+    }
+
+    if (showAddAppsDialog) {
+        val existingPackages = remember(rules) { rules.map { it.packageName }.toSet() }
+        AddAppsToPlanDialog(
+            planName = planName,
+            existingPackages = existingPackages,
+            viewModel = viewModel,
+            onDismiss = { showAddAppsDialog = false }
+        )
     }
 }
 
@@ -1597,6 +1722,61 @@ private fun LocksHeader() {
 
 
 @Composable
+private fun SpecialAdultBlockItem(
+    isDeleteEnabled: Boolean = true,
+    onDelete: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(AccentRed.copy(alpha = 0.2f), CircleShape)
+                .border(1.dp, AccentRed, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("18+", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "All Adult Websites",
+                color = TextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Online DNS filter active",
+                color = AccentCyan,
+                fontSize = 11.sp
+            )
+        }
+        if (isDeleteEnabled) {
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = "Remove",
+                    tint = AccentRed.copy(alpha = 0.7f)
+                )
+            }
+        } else {
+            Icon(
+                imageVector = Icons.Rounded.Lock,
+                contentDescription = "Locked in Strict Mode",
+                tint = TextSecond.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .padding(12.dp)
+                    .size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
 private fun WebsiteLockItem(
     domain: String,
     isDeleteEnabled: Boolean = true,
@@ -1608,12 +1788,7 @@ private fun WebsiteLockItem(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = Icons.Rounded.Public,
-            contentDescription = null,
-            tint = AccentCyan,
-            modifier = Modifier.size(24.dp)
-        )
+        WebsiteFavicon(domain = domain, iconSize = 28.dp)
         Spacer(Modifier.width(16.dp))
         Text(
             text = domain,
@@ -1642,6 +1817,562 @@ private fun WebsiteLockItem(
     }
 }
 
+private data class SuggestedBlock(
+    val id: String,
+    val label: String,
+    val iconUrl: String? = null,
+    val isSpecial: Boolean = false
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddWebsiteDialog(
+    viewModel: LocksViewModel,
+    isWebsiteStrictModeActive: Boolean,
+    onDismiss: () -> Unit
+) {
+    var inputText by remember { mutableStateOf("") }
+    var liveSuggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isSearching by remember { mutableStateOf(false) }
+
+    val blockedWebsites by viewModel.blockedWebsites.collectAsState()
+
+    val defaultSuggestions = remember {
+        listOf(
+            SuggestedBlock(id = LocksViewModel.ADULT_BLOCK_KEY, label = "All Adult Websites", iconUrl = null, isSpecial = true),
+            SuggestedBlock(id = "youtube.com", label = "youtube.com", iconUrl = "https://www.google.com/s2/favicons?domain=youtube.com&sz=64"),
+            SuggestedBlock(id = "instagram.com", label = "instagram.com", iconUrl = "https://www.google.com/s2/favicons?domain=instagram.com&sz=64"),
+            SuggestedBlock(id = "facebook.com", label = "facebook.com", iconUrl = "https://www.google.com/s2/favicons?domain=facebook.com&sz=64"),
+            SuggestedBlock(id = "discord.com", label = "discord.com", iconUrl = "https://www.google.com/s2/favicons?domain=discord.com&sz=64"),
+            SuggestedBlock(id = "twitter.com", label = "twitter.com", iconUrl = "https://www.google.com/s2/favicons?domain=twitter.com&sz=64")
+        )
+    }
+
+    val visibleDefaultSuggestions by remember(blockedWebsites) {
+        derivedStateOf {
+            defaultSuggestions.filter { !blockedWebsites.contains(it.id) }
+        }
+    }
+
+    // Live search debounce (starts at 1 letter)
+    LaunchedEffect(inputText) {
+        val query = inputText.trim()
+        if (query.length >= 1) {
+            isSearching = true
+            delay(300) // 300ms debounce
+            val results = DomainSuggestionApi.suggest(query)
+            liveSuggestions = results
+            isSearching = false
+        } else {
+            isSearching = false
+            liveSuggestions = emptyList()
+        }
+    }
+
+    val isSearchActive = inputText.trim().isNotEmpty()
+    var sessionAddedWebsites by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    val visibleLiveSuggestions by remember(liveSuggestions, blockedWebsites, sessionAddedWebsites) {
+        derivedStateOf {
+            liveSuggestions.filter { !blockedWebsites.contains(it) && !sessionAddedWebsites.contains(it) }
+                .map { domain ->
+                    SuggestedBlock(
+                        id = domain,
+                        label = domain,
+                        iconUrl = "https://www.google.com/s2/favicons?domain=$domain&sz=64",
+                        isSpecial = false
+                    )
+                }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(0.9f)
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+    ) {
+        // Header row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Add websites to block",
+                color = TextPrimary,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Close",
+                    tint = TextPrimary
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Search/Input Field
+        OutlinedTextField(
+            value = inputText,
+            onValueChange = { inputText = it },
+            placeholder = { Text("Type/Paste Site URL to add", color = TextSecond.copy(alpha = 0.5f)) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = null,
+                    tint = AccentCyan
+                )
+            },
+            trailingIcon = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(end = 8.dp)
+                ) {
+                    if (isSearching) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = AccentCyan,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    if (inputText.isNotBlank()) {
+                        IconButton(onClick = {
+                            viewModel.addWebsite(inputText)
+                            sessionAddedWebsites = sessionAddedWebsites + inputText.trim().lowercase()
+                            inputText = ""
+                        }) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = "Add",
+                                tint = AccentCyan
+                            )
+                        }
+                    }
+                }
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                if (inputText.isNotBlank()) {
+                    viewModel.addWebsite(inputText)
+                    sessionAddedWebsites = sessionAddedWebsites + inputText.trim().lowercase()
+                    inputText = ""
+                }
+            }),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AccentCyan,
+                unfocusedBorderColor = TextSecond.copy(alpha = 0.3f),
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary,
+                focusedContainerColor = CardBg,
+                unfocusedContainerColor = CardBg
+            ),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        // Scrollable Content
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (!isSearchActive) {
+                // Mode A: Search is empty -> show full Blocked Websites + Default Suggestions
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Blocked Websites (${blockedWebsites.size})",
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (blockedWebsites.isNotEmpty()) {
+                            TextButton(
+                                onClick = { viewModel.clearAllWebsites() },
+                                enabled = !isWebsiteStrictModeActive
+                            ) {
+                                Text(
+                                    text = "Delete all",
+                                    color = if (isWebsiteStrictModeActive) TextSecond else Color(0xFFF97316),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (blockedWebsites.isEmpty()) {
+                    item {
+                        Text(
+                            text = "No websites added yet",
+                            color = TextSecond,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    items(blockedWebsites.toList(), key = { it }) { domain ->
+                        if (domain == LocksViewModel.ADULT_BLOCK_KEY) {
+                            DialogAdultBlockRow(
+                                isDeleteEnabled = !isWebsiteStrictModeActive,
+                                onDelete = { viewModel.removeAdultWebsiteBlock() }
+                            )
+                        } else {
+                            DialogWebsiteRow(
+                                domain = domain,
+                                isDeleteEnabled = !isWebsiteStrictModeActive,
+                                onDelete = { viewModel.removeWebsite(domain) }
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Suggested",
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                items(visibleDefaultSuggestions, key = { it.id }) { suggestion ->
+                    DashedSuggestionCard(
+                        suggestion = suggestion,
+                        onAdd = {
+                            if (suggestion.isSpecial) {
+                                viewModel.addAdultWebsiteBlock()
+                            } else {
+                                viewModel.addWebsite(suggestion.id)
+                            }
+                            sessionAddedWebsites = sessionAddedWebsites + suggestion.id
+                        }
+                    )
+                }
+            } else {
+                // Mode B: Searching -> show ONLY newly added items at top + live suggested matches
+                if (sessionAddedWebsites.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Added to Blocklist (${sessionAddedWebsites.size})",
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    items(sessionAddedWebsites, key = { "added_$it" }) { domain ->
+                        if (domain == LocksViewModel.ADULT_BLOCK_KEY) {
+                            DialogAdultBlockRow(
+                                isDeleteEnabled = !isWebsiteStrictModeActive,
+                                onDelete = {
+                                    viewModel.removeAdultWebsiteBlock()
+                                    sessionAddedWebsites = sessionAddedWebsites - domain
+                                }
+                            )
+                        } else {
+                            DialogWebsiteRow(
+                                domain = domain,
+                                isDeleteEnabled = !isWebsiteStrictModeActive,
+                                onDelete = {
+                                    viewModel.removeWebsite(domain)
+                                    sessionAddedWebsites = sessionAddedWebsites - domain
+                                }
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Suggested Matches",
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                if (visibleLiveSuggestions.isEmpty() && !isSearching) {
+                    item {
+                        Text(
+                            text = "No matching domain suggestions",
+                            color = TextSecond,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    items(visibleLiveSuggestions, key = { it.id }) { suggestion ->
+                        DashedSuggestionCard(
+                            suggestion = suggestion,
+                            onAdd = {
+                                if (suggestion.isSpecial) {
+                                    viewModel.addAdultWebsiteBlock()
+                                } else {
+                                    viewModel.addWebsite(suggestion.id)
+                                }
+                                sessionAddedWebsites = sessionAddedWebsites + suggestion.id
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Button(
+            onClick = onDismiss,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.White,
+                contentColor = Color.Black
+            ),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Text("Done", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        }
+    }
+}
+
+@Composable
+private fun WebsiteFavicon(
+    domain: String,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 28.dp
+) {
+    var isError by remember(domain) { mutableStateOf(false) }
+
+    if (isError) {
+        Box(
+            modifier = modifier
+                .size(iconSize)
+                .clip(CircleShape)
+                .background(AccentCyan.copy(alpha = 0.2f))
+                .border(1.dp, AccentCyan.copy(alpha = 0.4f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Public,
+                contentDescription = null,
+                tint = Color(0xFF67E8F9),
+                modifier = Modifier.size(iconSize * 0.6f)
+            )
+        }
+    } else {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data("https://www.google.com/s2/favicons?domain=$domain&sz=64")
+                .crossfade(true)
+                .build(),
+            contentDescription = null,
+            onError = { isError = true },
+            modifier = modifier
+                .size(iconSize)
+                .clip(CircleShape)
+        )
+    }
+}
+
+@Composable
+private fun DialogWebsiteRow(
+    domain: String,
+    isDeleteEnabled: Boolean,
+    onDelete: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            WebsiteFavicon(domain = domain, iconSize = 28.dp)
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = domain,
+                color = TextPrimary,
+                fontSize = 14.sp,
+                modifier = Modifier.weight(1f)
+            )
+            if (isDeleteEnabled) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Rounded.Delete,
+                        contentDescription = "Delete",
+                        tint = AccentRed.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Lock,
+                    contentDescription = "Locked",
+                    tint = TextSecond.copy(alpha = 0.5f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DialogAdultBlockRow(
+    isDeleteEnabled: Boolean,
+    onDelete: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(AccentRed.copy(alpha = 0.2f), CircleShape)
+                    .border(1.dp, AccentRed, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("18+", color = AccentRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "All Adult Websites",
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Online DNS filter active",
+                    color = AccentCyan,
+                    fontSize = 10.sp
+                )
+            }
+            if (isDeleteEnabled) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Rounded.Delete,
+                        contentDescription = "Delete",
+                        tint = AccentRed.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Lock,
+                    contentDescription = "Locked",
+                    tint = TextSecond.copy(alpha = 0.5f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashedSuggestionCard(
+    suggestion: SuggestedBlock,
+    onAdd: () -> Unit
+) {
+    val strokeColor = Color.White.copy(alpha = 0.2f)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val stroke = Stroke(
+                    width = 1.5.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(12.dp.toPx(), 8.dp.toPx()), 0f)
+                )
+                drawRoundRect(
+                    color = strokeColor,
+                    cornerRadius = CornerRadius(16.dp.toPx()),
+                    style = stroke
+                )
+            }
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.03f))
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (suggestion.isSpecial) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .background(AccentRed.copy(alpha = 0.2f), CircleShape)
+                        .border(1.dp, AccentRed, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("18+", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            } else {
+                WebsiteFavicon(domain = suggestion.id, iconSize = 28.dp)
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Text(
+                text = suggestion.label,
+                color = TextPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+
+            Button(
+                onClick = onAdd,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.height(34.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun WebsiteHistoryItem(
     domain: String,
@@ -1657,12 +2388,7 @@ private fun WebsiteHistoryItem(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = Icons.Rounded.Language,
-            contentDescription = null,
-            tint = AccentCyan,
-            modifier = Modifier.size(20.dp)
-        )
+        WebsiteFavicon(domain = domain, iconSize = 24.dp)
         Spacer(Modifier.width(12.dp))
         Text(
             text = domain,
@@ -1676,7 +2402,7 @@ private fun WebsiteHistoryItem(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "Locked",
+                    text = "Added",
                     color = AccentCyan,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -1686,80 +2412,228 @@ private fun WebsiteHistoryItem(
         } else {
             Button(
                 onClick = onLock,
-                colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.height(32.dp)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.height(34.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Lock,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = Color.White
-                )
-                Spacer(Modifier.width(4.dp))
-                Text("+ Lock", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddWebsiteDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
+private fun AddAppsToPlanDialog(
+    planName: String,
+    existingPackages: Set<String>,
+    viewModel: LocksViewModel,
+    onDismiss: () -> Unit
+) {
+    val selectableApps by viewModel.selectableApps.collectAsState()
+    val isDataLoading by viewModel.isAppsLoading.collectAsState()
 
-    AlertDialog(
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedPackages by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    val availableApps = remember(selectableApps, existingPackages, searchQuery) {
+        selectableApps.filter { app ->
+            !existingPackages.contains(app.packageName) &&
+            (app.assignedPlanName == null || app.assignedPlanName == planName) &&
+            (searchQuery.isBlank() ||
+             app.name.contains(searchQuery, ignoreCase = true) ||
+             app.packageName.contains(searchQuery, ignoreCase = true))
+        }
+    }
+
+    Dialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBg,
-        title = {
-            Text(
-                text = "Add Blocked Website / Keyword",
-                color = TextPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = "Enter domain, wildcard (e.g. *.reddit.com), or URL path (e.g. /shorts):",
-                    color = TextSecond,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 24.dp),
+            color = ScreenBg,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "Add Apps to $planName",
+                            color = TextPrimary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "New apps inherit all rules of this plan",
+                            color = TextSecond,
+                            fontSize = 11.sp
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Close",
+                            tint = TextPrimary
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Search Field
                 OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    placeholder = { Text("e.g. youtube.com/shorts or twitter.com", color = TextSecond.copy(alpha = 0.5f)) },
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search apps...", color = TextSecond.copy(alpha = 0.5f)) },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.Search, contentDescription = null, tint = AccentCyan)
+                    },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentCyan,
-                        unfocusedBorderColor = TextSecond.copy(alpha = 0.2f),
+                        unfocusedBorderColor = TextSecond.copy(alpha = 0.3f),
                         focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
+                        unfocusedTextColor = TextPrimary,
+                        focusedContainerColor = CardBg,
+                        unfocusedContainerColor = CardBg
                     ),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (text.isNotBlank()) {
-                        onConfirm(text.trim())
+
+                Spacer(Modifier.height(16.dp))
+
+                // Apps List
+                if (isDataLoading) {
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = AccentCyan)
                     }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
-            ) {
-                Text("Add", color = Color.White)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = TextSecond)
+                } else if (availableApps.isEmpty()) {
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No available apps to add",
+                            color = TextSecond,
+                            fontSize = 13.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(availableApps, key = { it.packageName }) { app ->
+                            val isSelected = selectedPackages.contains(app.packageName)
+                            Card(
+                                onClick = {
+                                    selectedPackages = if (isSelected) {
+                                        selectedPackages - app.packageName
+                                    } else {
+                                        selectedPackages + app.packageName
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) AccentCyan.copy(alpha = 0.12f) else CardBg
+                                ),
+                                shape = RoundedCornerShape(14.dp),
+                                border = if (isSelected) BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f)) else null
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Image(
+                                            painter = rememberAsyncImagePainter(app.icon),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(app.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(app.packageName, color = TextSecond, fontSize = 11.sp)
+                                    }
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = { checked ->
+                                            selectedPackages = if (checked) {
+                                                selectedPackages + app.packageName
+                                            } else {
+                                                selectedPackages - app.packageName
+                                            }
+                                        },
+                                        colors = CheckboxDefaults.colors(checkedColor = AccentCyan)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Confirm Action Button
+                Button(
+                    onClick = {
+                        if (selectedPackages.isNotEmpty()) {
+                            viewModel.addAppsToPlan(planName, selectedPackages)
+                            onDismiss()
+                        }
+                    },
+                    enabled = selectedPackages.isNotEmpty(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentCyan,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                ) {
+                    Text(
+                        text = if (selectedPackages.isNotEmpty()) "Add ${selectedPackages.size} Selected Apps" else "Select Apps to Add",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
             }
         }
-    )
+    }
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFF080E1A)
