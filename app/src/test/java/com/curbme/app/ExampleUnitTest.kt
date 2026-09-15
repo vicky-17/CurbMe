@@ -88,4 +88,30 @@ class ExampleUnitTest {
         // Unknown browser should return false when fallback is OFF
         assertFalse(engine.shouldEnforceDnsBlockingForBrowser("com.unknown.browser", settingsOff))
     }
+
+    @Test
+    fun testWebsiteStrictMode() {
+        val now = System.currentTimeMillis()
+
+        // Active strict mode
+        val activeSettings = Settings(
+            isStrictModeEnabled = true,
+            strictModeUntil = now + 3600_000L
+        )
+        assertTrue(activeSettings.isWebsiteStrictModeActive)
+
+        // Expired strict mode
+        val expiredSettings = Settings(
+            isStrictModeEnabled = true,
+            strictModeUntil = now - 1000L
+        )
+        assertFalse(expiredSettings.isWebsiteStrictModeActive)
+
+        // Disabled strict mode
+        val disabledSettings = Settings(
+            isStrictModeEnabled = false,
+            strictModeUntil = now + 3600_000L
+        )
+        assertFalse(disabledSettings.isWebsiteStrictModeActive)
+    }
 }

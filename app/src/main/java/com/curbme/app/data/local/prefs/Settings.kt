@@ -54,8 +54,13 @@ data class Settings(
     val isAppUsageTrackingEnabled: Boolean = true,
     val isAutoHealEnabled: Boolean = true,
     val isWebsiteUsageTrackingEnabled: Boolean = true,
+    val isStrictModeEnabled: Boolean = false,
+    val strictModeUntil: Long = 0L,
     val reelPlanConfig: ReelPlanConfig = ReelPlanConfig()
 ) {
+    val isWebsiteStrictModeActive: Boolean
+        get() = isStrictModeEnabled && System.currentTimeMillis() < strictModeUntil
+
     val isSettingsLocked: Boolean
         get() {
             val now = System.currentTimeMillis()

@@ -186,6 +186,18 @@ class PrefsManager(context: Context) {
             prefs.edit { putBoolean("block_unsupported_browsers", value) }
         }
 
+    var isStrictModeEnabled: Boolean
+        get() = prefs.getBoolean("website_strict_mode_enabled", false)
+        set(value) {
+            prefs.edit { putBoolean("website_strict_mode_enabled", value) }
+        }
+
+    var strictModeUntil: Long
+        get() = prefs.getLong("website_strict_mode_until", 0L)
+        set(value) {
+            prefs.edit { putLong("website_strict_mode_until", value) }
+        }
+
     var isAutoHealEnabled: Boolean
         get() = prefs.getBoolean(KEY_AUTO_HEAL_ENABLED, true)
         set(value) {

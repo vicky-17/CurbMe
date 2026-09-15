@@ -97,6 +97,18 @@ class LocksViewModel(
         .map { it.blockedWebsites }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    val isWebsiteStrictModeActive: StateFlow<Boolean> = dataStoreManager.settings
+        .map { it.isWebsiteStrictModeActive }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val strictModeUntil: StateFlow<Long> = dataStoreManager.settings
+        .map { it.strictModeUntil }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val isBlockUnsupportedBrowsersEnabled: StateFlow<Boolean> = dataStoreManager.settings
+        .map { it.isBlockUnsupportedBrowsers }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     private val db = AppDatabase.getDatabase(context)
     val visitedWebsites: StateFlow<List<WebsiteStatsEntity>> =
         db.websiteStatsDao().getForDateFlow(TimeUtils.todayKey())
@@ -327,11 +339,42 @@ class LocksViewModel(
 
     fun removeWebsite(domain: String) {
         viewModelScope.launch {
+            val currentSettings = dataStoreManager.settings.first()
+            if (currentSettings.isWebsiteStrictModeActive) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Strict Mode active. Website removal is locked.", Toast.LENGTH_SHORT).show()
+                }
+                return@launch
+            }
             dataStoreManager.updateSettings { current ->
                 val updated = current.blockedWebsites.toMutableSet()
                 updated.remove(domain)
                 current.copy(blockedWebsites = updated)
             }
+        }
+    }
+
+    fun requestEnableStrictMode() {
+        // UI triggers duration picker dialog
+    }
+
+    fun confirmStrictMode(durationMs: Long) {
+        if (durationMs > 0) {
+            viewModelScope.launch {
+                dataStoreManager.setWebsiteStrictMode(enabled = true, durationMs = durationMs)
+            }
+        }
+    }
+
+    fun disableStrictMode() {
+        viewModelScope.launch {
+            dataStoreManager.setWebsiteStrictMode(enabled = false, durationMs = 0L)
+        }
+    }
+
+    fun setBlockUnsupportedBrowsers(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setBlockUnsupportedBrowsers(enabled)
         }
     }
 

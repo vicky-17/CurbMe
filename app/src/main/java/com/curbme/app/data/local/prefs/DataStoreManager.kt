@@ -180,4 +180,17 @@ class DataStoreManager(private val context: Context) {
         val prefs = PrefsManager(context)
         prefs.isBlockUnsupportedBrowsers = enabled
     }
+
+    suspend fun setWebsiteStrictMode(enabled: Boolean, durationMs: Long = 0L) {
+        val until = if (enabled && durationMs > 0) System.currentTimeMillis() + durationMs else 0L
+        dataStore.updateData {
+            it.copy(
+                isStrictModeEnabled = enabled,
+                strictModeUntil = until
+            )
+        }
+        val prefs = PrefsManager(context)
+        prefs.isStrictModeEnabled = enabled
+        prefs.strictModeUntil = until
+    }
 }

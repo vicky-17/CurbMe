@@ -39,9 +39,13 @@ import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.data.local.db.AppDatabase // Add this
 import com.curbme.app.core.utils.AppIconManager
 import com.curbme.app.data.local.db.entity.AppBlockRule // Add this
-import androidx.lifecycle.viewmodel.compose.viewModel
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.curbme.app.ui.components.cards.ToggleCard
+import com.curbme.app.ui.components.dialogs.LockSettingsDialog
+import com.curbme.app.ui.sidebar.formatRemainingTime
 import coil.compose.rememberAsyncImagePainter
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
@@ -75,6 +79,9 @@ fun LocksScreen(prefs: PrefsManager) {
     val wizardState by viewModel.wizardState.collectAsState()
     val websites by viewModel.blockedWebsites.collectAsState()
     val visitedWebsites by viewModel.visitedWebsites.collectAsState()
+    val isWebsiteStrictModeActive by viewModel.isWebsiteStrictModeActive.collectAsState()
+    val strictModeUntil by viewModel.strictModeUntil.collectAsState()
+    val isBlockUnsupportedBrowsersEnabled by viewModel.isBlockUnsupportedBrowsersEnabled.collectAsState()
 
     val groupedRules by remember(activeRules) {
         derivedStateOf { activeRules.groupBy { it.planName.ifBlank { "Unnamed Plan" } } }
@@ -82,6 +89,7 @@ fun LocksScreen(prefs: PrefsManager) {
 
     var showWizard by remember { mutableStateOf(value = false) }
     var showAddWebsiteDialog by remember { mutableStateOf(false) }
+    var showStrictModeDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
         confirmValueChange = { newValue ->
             // Return false to prevent the sheet from being hidden via gestures
@@ -158,6 +166,50 @@ fun LocksScreen(prefs: PrefsManager) {
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
+                    // Header Toggles
+                    item {
+                        val now = System.currentTimeMillis()
+                        val remainingMs = (strictModeUntil - now).coerceAtLeast(0L)
+                        val strictSubtitle = if (isWebsiteStrictModeActive && remainingMs > 0) {
+                            "Active: Locked for ${formatRemainingTime(remainingMs)}"
+                        } else {
+                            "Prevents removing any website from the blocklist once active."
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        ToggleCard(
+                            emoji = "🔒",
+                            title = "Strict Mode",
+                            subtitle = strictSubtitle,
+                            isEnabled = isWebsiteStrictModeActive,
+                            isLocked = isWebsiteStrictModeActive,
+                            onToggle = { newValue ->
+                                if (newValue) {
+                                    showStrictModeDialog = true
+                                } else {
+                                    if (isWebsiteStrictModeActive) {
+                                        Toast.makeText(context, "Strict Mode is locked until expiry.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        ToggleCard(
+                            emoji = "🛡️",
+                            title = "Block Unsupported Browsers",
+                            subtitle = "Blocks browsers that lack URL tracking capabilities via VPN.",
+                            isEnabled = isBlockUnsupportedBrowsersEnabled,
+                            onToggle = { newValue ->
+                                viewModel.setBlockUnsupportedBrowsers(newValue)
+                            }
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+                    }
+
                     // Section 1: Blocked Websites
                     item {
                         Text(
@@ -165,7 +217,7 @@ fun LocksScreen(prefs: PrefsManager) {
                             color = TextPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                         )
                     }
 
@@ -182,7 +234,10 @@ fun LocksScreen(prefs: PrefsManager) {
                         }
                     } else {
                         items(websites.toList()) { domain ->
-                            WebsiteLockItem(domain = domain) {
+                            WebsiteLockItem(
+                                domain = domain,
+                                isDeleteEnabled = !isWebsiteStrictModeActive
+                            ) {
                                 viewModel.removeWebsite(domain)
                             }
                         }
@@ -275,6 +330,16 @@ fun LocksScreen(prefs: PrefsManager) {
                     viewModel.addWebsite(domain)
                     showAddWebsiteDialog = false
                 }
+            )
+        }
+
+        if (showStrictModeDialog) {
+            LockSettingsDialog(
+                onConfirm = { durationMs ->
+                    viewModel.confirmStrictMode(durationMs)
+                    showStrictModeDialog = false
+                },
+                onDismiss = { showStrictModeDialog = false }
             )
         }
     }
@@ -1532,7 +1597,11 @@ private fun LocksHeader() {
 
 
 @Composable
-private fun WebsiteLockItem(domain: String, onDelete: () -> Unit) {
+private fun WebsiteLockItem(
+    domain: String,
+    isDeleteEnabled: Boolean = true,
+    onDelete: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1552,11 +1621,22 @@ private fun WebsiteLockItem(domain: String, onDelete: () -> Unit) {
             fontSize = 15.sp,
             modifier = Modifier.weight(1f)
         )
-        IconButton(onClick = onDelete) {
+        if (isDeleteEnabled) {
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = "Remove",
+                    tint = AccentRed.copy(alpha = 0.7f)
+                )
+            }
+        } else {
             Icon(
-                imageVector = Icons.Rounded.Delete,
-                contentDescription = "Remove",
-                tint = AccentRed.copy(alpha = 0.7f)
+                imageVector = Icons.Rounded.Lock,
+                contentDescription = "Locked in Strict Mode",
+                tint = TextSecond.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .padding(12.dp)
+                    .size(20.dp)
             )
         }
     }
