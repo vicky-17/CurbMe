@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.curbme.app.ui.components.cards.PermissionCard
 import com.curbme.app.ui.theme.CurbMeTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -294,95 +295,6 @@ private fun SectionHeader(title: String) {
         letterSpacing = 1.2.sp,
         modifier = Modifier.padding(top = 16.dp, bottom = 4.dp, start = 4.dp)
     )
-}
-
-@Composable
-fun PermissionCard(
-    title: String,
-    description: String,
-    icon: ImageVector,
-    isGranted: Boolean,
-    onGrantClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp)),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isGranted) Color(0xFF0D2B1A).copy(alpha = 0.6f)
-            else Color.White.copy(alpha = 0.07f)
-        )
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(
-                        color = if (isGranted) Color(0xFF16A34A).copy(alpha = 0.15f)
-                        else Color(0xFF3B82F6).copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isGranted) Color(0xFF4CAF50) else Color(0xFF3B82F6),
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(description, fontSize = 12.sp, lineHeight = 16.sp, color = Color(0xFF94A3B8))
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (isGranted) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Rounded.CheckCircle,
-                            contentDescription = "Active",
-                            tint = Color(0xFF4CAF50),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            "Permission Active",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF4CAF50)
-                        )
-                    }
-                } else {
-                    Button(
-                        onClick = onGrantClick,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3B82F6),
-                            contentColor   = Color.White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                        modifier = Modifier.height(34.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.ErrorOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Activate Setting", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
 }
 
 // ── Previews ──────────────────────────────────────────────────────────────────
