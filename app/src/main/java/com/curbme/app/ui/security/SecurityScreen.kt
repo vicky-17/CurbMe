@@ -2,7 +2,6 @@ package com.curbme.app.ui.security
 
 import android.os.SystemClock
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,7 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.rememberAsyncImagePainter
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -606,7 +606,7 @@ private fun BankingAppPickerDialog(
                             items(apps.size) { index ->
                                 val app = apps[index]
                                 Row(modifier = Modifier.fillMaxWidth().clickable { onAppSelected(app.packageName) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Image(painter = rememberAsyncImagePainter(app.icon), contentDescription = null, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)))
+                                    androidx.compose.foundation.Image(painter = rememberAppIconPainter(app.icon), contentDescription = null, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)))
                                     Spacer(Modifier.width(14.dp))
                                     Column {
                                         Text(app.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -659,7 +659,7 @@ private fun AppUninstallProtectionDialog(viewModel: SecurityViewModel, prefs: Pr
                                 val app = apps[index]
                                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
                                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        Image(painter = rememberAsyncImagePainter(app.icon), contentDescription = null, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)))
+                                        androidx.compose.foundation.Image(painter = rememberAppIconPainter(app.icon), contentDescription = null, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)))
                                         Spacer(Modifier.width(14.dp))
                                         Column(Modifier.weight(1f)) {
                                             Text(app.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -689,6 +689,14 @@ private fun AppUninstallProtectionDialog(viewModel: SecurityViewModel, prefs: Pr
         },
         confirmButton = { Button(onClick = { viewModel.dismissAppListDialog() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))) { Text("Done", color = Color.White) } }
     )
+}
+
+@Composable
+fun rememberAppIconPainter(drawable: android.graphics.drawable.Drawable?): androidx.compose.ui.graphics.painter.Painter {
+    return remember(drawable) {
+        val bitmap = try { drawable?.toBitmap() ?: createBitmap(1, 1) } catch (e: Exception) { createBitmap(1, 1) }
+        androidx.compose.ui.graphics.painter.BitmapPainter(bitmap.asImageBitmap())
+    }
 }
 
 @Composable

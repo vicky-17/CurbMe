@@ -6,7 +6,6 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
-import android.util.Log
 import com.curbme.app.data.local.db.AppDatabase
 import com.curbme.app.data.local.db.entity.AppBlockRule
 import kotlinx.coroutines.*
@@ -59,53 +58,35 @@ class AppBlockEngineService : Service() {
     }
 
     private fun startMonitoring() {
-        // 1. Reactive collect: Instant response on app switch (driven by Accessibility / App switches)
-        serviceScope.launch {
-            MonitorState.foregroundApp.collect { info ->
-                val currentApp = info.packageName
-                if (currentApp != null && !IGNORED_PACKAGES.contains(currentApp) && currentApp != packageName) {
-                    Log.d("AppBlockEngine", "App switched to: $currentApp")
-                    lastForegroundApp = currentApp
-                    checkForegroundApp(currentApp)
-                } else if (currentApp == null || IGNORED_PACKAGES.contains(currentApp)) {
-                    if (lastForegroundApp != null) {
-                        lastForegroundApp = null
-                    }
-                }
-            }
-        }
-
-        // 2. Periodic enforcement tick: Re-checks time limits / countdowns while parked in one app
         serviceScope.launch {
             while (isActive) {
-                delay(5000)
                 try {
-                    val app = lastForegroundApp
-                    if (app != null && !IGNORED_PACKAGES.contains(app) && app != packageName) {
-                        checkForegroundApp(app)
-                    }
-                } catch (e: Exception) {
-                    Log.e("AppBlockEngine", "Error in periodic enforcement tick", e)
-                }
-            }
-        }
+                    val currentApp = getForegroundPackage()
+                    android.util.Log.d("AppBlockEngine", "Detected foreground app: $currentApp")
+                    
+                    // Hub & Spoke: Update the central state immediately.
+                    // This will trigger System B (Usage Tracker / Notifications) automatically.
+                    MonitorState.updateForegroundApp(currentApp)
 
-        // 3. Fallback polling loop: Runs on IO every 5s when Accessibility Service is disabled
-        serviceScope.launch(Dispatchers.IO) {
-            while (isActive) {
-                delay(5000)
-                try {
-                    if (!PermissionHelper.isAccessibilityEnabled(this@AppBlockEngineService)) {
-                        val currentApp = getForegroundPackage()
-                        if (currentApp != null) {
-                            withContext(Dispatchers.Main) {
-                                MonitorState.updateForegroundApp(currentApp)
-                            }
+                    if (currentApp != null && !IGNORED_PACKAGES.contains(currentApp) && currentApp != packageName && currentApp != lastForegroundApp) {
+                        android.util.Log.d("AppBlockEngine", "App switched to: $currentApp")
+                        lastForegroundApp = currentApp
+                        
+                        // 1. Instantly check if we should block (The Enforcer)
+                        checkForegroundApp(currentApp)
+                    } else if (currentApp == null || IGNORED_PACKAGES.contains(currentApp)) {
+                        if (lastForegroundApp != null) {
+                            lastForegroundApp = null
                         }
                     }
+
+                    // 2. Regular background check for time limits/countdowns
+                    checkForegroundApp(currentApp)
+
                 } catch (e: Exception) {
-                    Log.e("AppBlockEngine", "Error in fallback monitor loop", e)
+                    android.util.Log.e("AppBlockEngine", "Error in logic loop", e)
                 }
+                delay(300) 
             }
         }
     }
@@ -313,7 +294,11 @@ class AppBlockEngineService : Service() {
         private val IGNORED_PACKAGES = setOf("android", "com.android.systemui", "com.miui.systemui.plugin")
 
         fun onAppSwitched(packageName: String) {
-            MonitorState.updateForegroundApp(packageName)
+            val svc = instance ?: return
+            svc.serviceScope.launch {
+                MonitorState.updateForegroundApp(packageName)
+                svc.checkForegroundApp(packageName)
+            }
         }
     }
 }

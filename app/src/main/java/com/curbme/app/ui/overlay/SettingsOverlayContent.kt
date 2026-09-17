@@ -41,7 +41,7 @@ fun SettingsBlockOverlay(
         modifier = Modifier
             .background(Color.Red)
             .animateContentSize(
-                animationSpec = tween(durationMillis = 300),
+                animationSpec = tween(durationMillis = 7000), // <-- INCREASE THIS
                 alignment = Alignment.BottomCenter
             )
             .height(targetHeight)
