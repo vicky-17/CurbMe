@@ -1,6 +1,8 @@
 package com.curbme.app.core.base
 
+import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 
 /**
  * Why we made this file:
@@ -14,4 +16,9 @@ import androidx.activity.ComponentActivity
  * Since it is 'abstract', it cannot be launched on its own; it exists only to be
  * extended by other classes like MainActivity or PinSetupActivity.
  */
-abstract class BaseActivity : ComponentActivity()
+abstract class BaseActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+    }
+}

@@ -49,6 +49,7 @@
             android:name=".ui.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.App.Starting"
+            android:windowSoftInputMode="adjustResize"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -58,11 +59,13 @@
 
         <activity
             android:name=".ui.onboarding.PermissionSetupActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".ui.auth.PinSetupActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <!--
              GuardianRedirectActivity: no UI chrome, instant launch.

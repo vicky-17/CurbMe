@@ -2,8 +2,9 @@
 <resources>
     <style name="Theme.CurbMe" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">#04040C</item>
-        <item name="android:statusBarColor">#04040C</item>
-        <item name="android:navigationBarColor">#04040C</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     </style>
 
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">

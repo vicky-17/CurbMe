@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.AnimatedContent
@@ -69,7 +70,6 @@ import com.curbme.app.ui.settings.SettingsScreen
 import com.curbme.app.ui.sidebar.PermissionsSidebar
 import com.curbme.app.ui.auth.AccountScreen
 import com.curbme.app.ui.theme.CurbMeTheme
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.curbme.app.ui.dashboard.DashboardScreen
 import com.curbme.app.ui.dashboard.UsageBreakdownScreen
@@ -137,6 +137,7 @@ class MainActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val prefs = PrefsManager(this)
 
@@ -249,18 +250,13 @@ class MainActivity : BaseActivity() {
         val context       = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
 
-        var refreshKey       by remember { mutableLongStateOf(0L) }
+        var refreshKey       by remember { mutableLongStateOf(System.currentTimeMillis()) }
         var permissionsState by remember { mutableStateOf(getPermissionsState(context)) }
-
-        LaunchedEffect(refreshKey) {
-            permissionsState = getPermissionsState(context)
-            delay(500)
-            permissionsState = getPermissionsState(context)
-        }
 
         DisposableEffect(lifecycleOwner) {
             val observer = LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_RESUME) {
+                    permissionsState = getPermissionsState(context)
                     refreshKey = System.currentTimeMillis()
                 }
             }
@@ -308,7 +304,7 @@ class MainActivity : BaseActivity() {
                         initialOffsetX = { fullWidth -> -fullWidth }
                     ) togetherWith slideOutHorizontally(
                         animationSpec = tween(300),
-                        targetOffsetX = { fullWidth -> fullWidth }
+                        targetOffsetX = { fullWidth -> -fullWidth }
                     )
                 }
             },
@@ -348,7 +344,7 @@ class MainActivity : BaseActivity() {
                                 HorizontalPager(
                                     state = pagerState,
                                     modifier = Modifier.fillMaxSize(),
-                                    beyondViewportPageCount = 1
+                                    beyondViewportPageCount = 0
                                 ) { page ->
                                     when (screens[page]) {
                                         Screen.DASHBOARD -> DashboardScreen(

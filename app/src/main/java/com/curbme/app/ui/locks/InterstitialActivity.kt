@@ -17,11 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 class InterstitialActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         
         val appName = intent.getStringExtra("app_name") ?: "This App"
