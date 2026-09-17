@@ -17,10 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.curbme.app.core.utils.TimeUtils
 import com.curbme.app.data.local.db.entity.WebsiteStatsEntity
 
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond = Color(0xFF94A3B8)
-private val AccentTeal = Color(0xFF14B8A6)
-private val RedAccent = Color(0xFFEF4444)
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @Composable
 fun WebsiteUsageCard(
@@ -53,7 +50,7 @@ fun WebsiteUsageCard(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(AccentTeal.copy(alpha = 0.15f)),
+                            .background(CurbMeTheme.colors.accentCyan.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text("🌐", fontSize = 18.sp)
@@ -62,14 +59,14 @@ fun WebsiteUsageCard(
                     Column {
                         Text(
                             text = "WEB DOMAIN GUARD",
-                            color = AccentTeal,
+                            color = CurbMeTheme.colors.accentCyan,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
                         Text(
                             text = "Browser Websites Visited Today",
-                            color = TextSecond,
+                            color = CurbMeTheme.colors.textSecondary,
                             fontSize = 12.sp
                         )
                     }
@@ -80,7 +77,7 @@ fun WebsiteUsageCard(
                     onCheckedChange = onToggleTracking,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = AccentTeal
+                        checkedTrackColor = CurbMeTheme.colors.accentCyan
                     )
                 )
             }
@@ -90,7 +87,7 @@ fun WebsiteUsageCard(
             if (websites.isEmpty()) {
                 Text(
                     text = "No web domains tracked yet today. Open Chrome, Brave, or Firefox to track browser visits.",
-                    color = TextSecond,
+                    color = CurbMeTheme.colors.textSecondary,
                     fontSize = 12.sp,
                     lineHeight = 16.sp
                 )
@@ -108,24 +105,24 @@ fun WebsiteUsageCard(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = site.domain,
-                                    color = TextPrimary,
+                                    color = CurbMeTheme.colors.textPrimary,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
                                     text = TimeUtils.formatDurationShort(site.totalTime),
-                                    color = TextSecond,
+                                    color = CurbMeTheme.colors.textSecondary,
                                     fontSize = 11.sp
                                 )
                             }
 
                             Button(
                                 onClick = { onBlockDomain(site.domain) },
-                                colors = ButtonDefaults.buttonColors(containerColor = RedAccent.copy(alpha = 0.15f)),
+                                colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentRed.copy(alpha = 0.15f)),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Block", color = RedAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Block", color = CurbMeTheme.colors.accentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

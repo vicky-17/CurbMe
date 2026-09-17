@@ -16,10 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.curbme.app.data.local.db.entity.AppGroupEntity
-
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond = Color(0xFF94A3B8)
-private val AccentViolet = Color(0xFF8B5CF6)
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @Composable
 fun AppGroupCard(
@@ -29,12 +26,12 @@ fun AppGroupCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
-        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.glassBg),
+        shape = CurbMeTheme.shapes.cardLarge,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
-            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
+            .border(1.dp, CurbMeTheme.colors.glassBorder, CurbMeTheme.shapes.cardLarge)
             .clickable(onClick = onClick)
     ) {
         Row(
@@ -50,7 +47,7 @@ fun AppGroupCard(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(AccentViolet.copy(alpha = 0.15f)),
+                        .background(CurbMeTheme.colors.accentViolet.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("📁", fontSize = 18.sp)
@@ -61,14 +58,14 @@ fun AppGroupCard(
                 Column {
                     Text(
                         text = group.name,
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (group.dailyLimitMinutes > 0) "Daily Limit: ${group.dailyLimitMinutes} mins" else "No shared limit",
-                        color = TextSecond,
+                        color = CurbMeTheme.colors.textSecondary,
                         fontSize = 12.sp
                     )
                 }
@@ -79,7 +76,7 @@ fun AppGroupCard(
                 onCheckedChange = onToggleActive,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = AccentViolet,
+                    checkedTrackColor = CurbMeTheme.colors.accentViolet,
                     uncheckedThumbColor = Color(0xFF64748B),
                     uncheckedTrackColor = Color(0xFF1E293B)
                 )

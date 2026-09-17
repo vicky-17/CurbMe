@@ -23,11 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.curbme.app.data.models.ReelPlanConfig
 import com.curbme.app.data.models.ShortsBlockMode
 
-private val BgDeep = Color(0xFF0F172A)
-private val AccentSky = Color(0xFF38BDF8) // App main sky blue color
-private val AccentViolet = Color(0xFF8B5CF6)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond = Color(0xFF94A3B8)
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +86,7 @@ fun ShortsConfigBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = BgDeep,
+        containerColor = CurbMeTheme.colors.bgDeep,
         scrimColor = Color.Black.copy(alpha = 0.6f),
         dragHandle = {
             Box(
@@ -121,7 +117,7 @@ fun ShortsConfigBottomSheet(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(AccentSky.copy(alpha = 0.15f)),
+                        .background(CurbMeTheme.colors.accentSky.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("⚙️", fontSize = 20.sp)
@@ -130,14 +126,14 @@ fun ShortsConfigBottomSheet(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "SHORTS & REELS SETTINGS",
-                        color = AccentSky,
+                        color = CurbMeTheme.colors.accentSky,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
                     Text(
                         text = "Configure App Targets, Overlay & Protection Limits",
-                        color = TextSecond,
+                        color = CurbMeTheme.colors.textSecondary,
                         fontSize = 12.sp
                     )
                 }
@@ -156,22 +152,22 @@ fun ShortsConfigBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Floating Reel Counter Badge", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("Live scroll badge overlay when browsing short videos", color = TextSecond, fontSize = 11.sp)
+                    Text("Floating Reel Counter Badge", color = CurbMeTheme.colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("Live scroll badge overlay when browsing short videos", color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
                 }
                 Switch(
                     checked = isDisplayBadge,
                     onCheckedChange = { isDisplayBadge = it },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = AccentSky
+                        checkedTrackColor = CurbMeTheme.colors.accentSky
                     )
                 )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Text("Protection Mode", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("Protection Mode", color = CurbMeTheme.colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -179,8 +175,8 @@ fun ShortsConfigBottomSheet(
                     val isSelected = mode == selectedMode
                     Surface(
                         shape = RoundedCornerShape(14.dp),
-                        color = if (isSelected) AccentSky.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.04f),
-                        border = if (isSelected) BorderStroke(1.dp, AccentSky) else BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
+                        color = if (isSelected) CurbMeTheme.colors.accentSky.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.04f),
+                        border = if (isSelected) BorderStroke(1.dp, CurbMeTheme.colors.accentSky) else BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { selectedMode = mode }
@@ -197,7 +193,7 @@ fun ShortsConfigBottomSheet(
                                     ShortsBlockMode.REEL_COUNT_LIMIT -> "🎬 Reel Scroll Count Cap"
                                     ShortsBlockMode.SCHEDULED_WINDOWS -> "⏰ Scheduled Allowed Hours"
                                 },
-                                color = if (isSelected) AccentSky else TextPrimary,
+                                color = if (isSelected) CurbMeTheme.colors.accentSky else CurbMeTheme.colors.textPrimary,
                                 fontSize = 13.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
@@ -209,25 +205,25 @@ fun ShortsConfigBottomSheet(
             Spacer(modifier = Modifier.height(18.dp))
 
             if (selectedMode == ShortsBlockMode.DAILY_TIME_LIMIT) {
-                Text("Daily Short Video Time Limit: ${timeLimitMins.toInt()} mins", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("Daily Short Video Time Limit: ${timeLimitMins.toInt()} mins", color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Slider(
                     value = timeLimitMins,
                     onValueChange = { timeLimitMins = it },
                     valueRange = 5f..120f,
                     steps = 22,
-                    colors = SliderDefaults.colors(thumbColor = AccentSky, activeTrackColor = AccentSky)
+                    colors = SliderDefaults.colors(thumbColor = CurbMeTheme.colors.accentSky, activeTrackColor = CurbMeTheme.colors.accentSky)
                 )
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
             if (selectedMode == ShortsBlockMode.REEL_COUNT_LIMIT) {
-                Text("Daily Reel Scroll Limit: ${reelCapCount.toInt()} reels", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("Daily Reel Scroll Limit: ${reelCapCount.toInt()} reels", color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Slider(
                     value = reelCapCount,
                     onValueChange = { reelCapCount = it },
                     valueRange = 5f..100f,
                     steps = 18,
-                    colors = SliderDefaults.colors(thumbColor = AccentViolet, activeTrackColor = AccentViolet)
+                    colors = SliderDefaults.colors(thumbColor = CurbMeTheme.colors.accentViolet, activeTrackColor = CurbMeTheme.colors.accentViolet)
                 )
                 Spacer(modifier = Modifier.height(14.dp))
             }
@@ -240,10 +236,10 @@ fun ShortsConfigBottomSheet(
                         .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
                         .padding(14.dp)
                 ) {
-                    Text("⏰ Allowed Time Schedule", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("⏰ Allowed Time Schedule", color = CurbMeTheme.colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Text(
                         "Short videos are allowed ONLY between start and end time. Outside these hours, they will be blocked.",
-                        color = TextSecond,
+                        color = CurbMeTheme.colors.textSecondary,
                         fontSize = 11.sp
                     )
 
@@ -255,47 +251,47 @@ fun ShortsConfigBottomSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Start Allowed Time", color = TextSecond, fontSize = 11.sp)
-                            Text(formatAmPm(startHour, startMinute), color = AccentSky, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("Start Allowed Time", color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
+                            Text(formatAmPm(startHour, startMinute), color = CurbMeTheme.colors.accentSky, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("End Allowed Time", color = TextSecond, fontSize = 11.sp)
-                            Text(formatAmPm(endHour, endMinute), color = AccentSky, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("End Allowed Time", color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
+                            Text(formatAmPm(endHour, endMinute), color = CurbMeTheme.colors.accentSky, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Text("Start Hour: ${formatAmPm(startHour, 0)}", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text("Start Hour: ${formatAmPm(startHour, 0)}", color = CurbMeTheme.colors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Slider(
                         value = startHour.toFloat(),
                         onValueChange = { startHour = it.toInt() },
                         valueRange = 0f..23f,
                         steps = 22,
-                        colors = SliderDefaults.colors(thumbColor = AccentSky, activeTrackColor = AccentSky)
+                        colors = SliderDefaults.colors(thumbColor = CurbMeTheme.colors.accentSky, activeTrackColor = CurbMeTheme.colors.accentSky)
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    Text("End Hour: ${formatAmPm(endHour, 0)}", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text("End Hour: ${formatAmPm(endHour, 0)}", color = CurbMeTheme.colors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Slider(
                         value = endHour.toFloat(),
                         onValueChange = { endHour = it.toInt() },
                         valueRange = 0f..23f,
                         steps = 22,
-                        colors = SliderDefaults.colors(thumbColor = AccentSky, activeTrackColor = AccentSky)
+                        colors = SliderDefaults.colors(thumbColor = CurbMeTheme.colors.accentSky, activeTrackColor = CurbMeTheme.colors.accentSky)
                     )
                 }
                 Spacer(modifier = Modifier.height(18.dp))
             }
 
-            Text("Target Video Apps", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("Target Video Apps", color = CurbMeTheme.colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Text(
                 text = if (selectedMode == ShortsBlockMode.COMPLETE_BLOCK) 
                     "Complete Block mode applies to all supported apps automatically." 
                 else 
                     "Select which apps to enforce rules on",
-                color = TextSecond,
+                color = CurbMeTheme.colors.textSecondary,
                 fontSize = 11.sp
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -323,10 +319,10 @@ fun ShortsConfigBottomSheet(
                             onCheckedChange = { checked ->
                                 selectedApps = if (checked) selectedApps + pkg else selectedApps - pkg
                             },
-                            colors = CheckboxDefaults.colors(checkedColor = AccentSky)
+                            colors = CheckboxDefaults.colors(checkedColor = CurbMeTheme.colors.accentSky)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(label, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text(label, color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -349,7 +345,7 @@ fun ShortsConfigBottomSheet(
                     )
                     onSave(updatedConfig, isDisplayBadge)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = AccentSky),
+                colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentSky),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()

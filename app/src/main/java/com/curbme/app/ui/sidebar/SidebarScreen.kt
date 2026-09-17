@@ -1,9 +1,18 @@
 package com.curbme.app.ui.sidebar
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -27,17 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.ui.PermissionsState
-
-// ── Color palette ─────────────────────────────────────────────────────────────
-private val BgCard      = Color(0xFF111827)
-private val AccentBlue  = Color(0xFF3B82F6)
-private val AccentGreen = Color(0xFF10B981)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond  = Color(0xFF64748B)
-private val TextMuted   = Color(0xFF334155)
-private val Divider     = Color(0xFF1E293B)
-private val SidebarBg   = Color(0xFF0B1322)
-private val SidebarEdge = Color(0xFF1E3A5F)
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @Composable
 fun PermissionsSidebar(
@@ -46,7 +45,8 @@ fun PermissionsSidebar(
     onRefresh: () -> Unit,
     onClose: () -> Unit
 ) {
-    val vpnSettingsLauncher = rememberLauncherForActivityResult(
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { onRefresh() }
 
@@ -56,20 +56,23 @@ fun PermissionsSidebar(
             .width(310.dp)
             .shadow(32.dp, RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp))
             .background(
-                brush = Brush.horizontalGradient(listOf(SidebarBg, BgCard)),
+                brush = Brush.horizontalGradient(listOf(CurbMeTheme.colors.bgDeep, CurbMeTheme.colors.bgCard)),
                 shape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
             )
             .clip(RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp))
     ) {
+        val dividerColor = CurbMeTheme.colors.divider
+        val accentBlueColor = CurbMeTheme.colors.accentBlue
+
         // Decorative right edge glow
         Canvas(modifier = Modifier.fillMaxHeight().width(3.dp).align(Alignment.CenterEnd)) {
             drawLine(
                 brush = Brush.verticalGradient(
                     listOf(
                         Color.Transparent,
-                        SidebarEdge,
-                        AccentBlue.copy(alpha = 0.6f),
-                        SidebarEdge,
+                        dividerColor,
+                        accentBlueColor.copy(alpha = 0.6f),
+                        dividerColor,
                         Color.Transparent
                     )
                 ),
@@ -89,10 +92,6 @@ fun PermissionsSidebar(
             // ── Header ────────────────────────────────────────────────────
             SidebarHeader(onClose = onClose)
 
-            // NOTE: "Keep VPN alive" and "Prevent VPN override" toggles have
-            // been moved to SecurityScreen. Add SecurityScreen navigation here
-            // if needed (e.g. a shortcut button to open it).
-
             // ── Footer ────────────────────────────────────────────────────
             Spacer(Modifier.height(16.dp))
             Column(
@@ -101,11 +100,11 @@ fun PermissionsSidebar(
             ) {
                 Text(
                     "We don't ask for data we don't need.",
-                    fontSize = 11.sp, color = TextSecond, textAlign = TextAlign.Center
+                    fontSize = 11.sp, color = CurbMeTheme.colors.textSecondary, textAlign = TextAlign.Center
                 )
                 Text(
                     "Your data stays on this device.",
-                    fontSize = 11.sp, color = AccentBlue, fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp, color = CurbMeTheme.colors.accentBlue, fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center
                 )
             }
@@ -117,7 +116,7 @@ fun PermissionsSidebar(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Divider)
+                    .background(CurbMeTheme.colors.divider)
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -125,7 +124,7 @@ fun PermissionsSidebar(
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "Return to the app.",
-                    fontSize = 11.sp, color = TextSecond, lineHeight = 16.sp
+                    fontSize = 11.sp, color = CurbMeTheme.colors.textSecondary, lineHeight = 16.sp
                 )
             }
         }
@@ -141,7 +140,7 @@ private fun SidebarHeader(onClose: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(Color(0xFF0F2A4A), SidebarBg)))
+            .background(Brush.verticalGradient(listOf(Color(0xFF0F2A4A), CurbMeTheme.colors.bgDeep)))
             .padding(start = 20.dp, end = 16.dp, top = 52.dp, bottom = 20.dp)
     ) {
         Row(
@@ -154,7 +153,7 @@ private fun SidebarHeader(onClose: () -> Unit) {
                     modifier = Modifier
                         .size(40.dp)
                         .background(
-                            Brush.radialGradient(listOf(AccentBlue.copy(0.25f), Color.Transparent)),
+                            Brush.radialGradient(listOf(CurbMeTheme.colors.accentBlue.copy(0.25f), Color.Transparent)),
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -163,12 +162,12 @@ private fun SidebarHeader(onClose: () -> Unit) {
                 }
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text("SideBar", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    Text("Put quick navigation buttons here.", fontSize = 11.sp, color = TextSecond, letterSpacing = 0.5.sp)
+                    Text("SideBar", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = CurbMeTheme.colors.textPrimary)
+                    Text("Put quick navigation buttons here.", fontSize = 11.sp, color = CurbMeTheme.colors.textSecondary, letterSpacing = 0.5.sp)
                 }
             }
             IconButton(onClick = onClose) {
-                Text("✕", fontSize = 16.sp, color = TextSecond)
+                Text("✕", fontSize = 16.sp, color = CurbMeTheme.colors.textSecondary)
             }
         }
     }
@@ -180,7 +179,7 @@ internal fun SidebarSectionLabel(label: String) {
         label,
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
-        color = TextMuted,
+        color = CurbMeTheme.colors.textMuted,
         letterSpacing = 1.5.sp,
         modifier = Modifier.padding(start = 20.dp, bottom = 4.dp)
     )
@@ -189,7 +188,7 @@ internal fun SidebarSectionLabel(label: String) {
 @Composable
 internal fun SidebarDivider() {
     HorizontalDivider(
-        color = Divider,
+        color = CurbMeTheme.colors.divider,
         thickness = 0.5.dp,
         modifier = Modifier.padding(horizontal = 20.dp)
     )
@@ -209,26 +208,22 @@ fun formatRemainingTime(ms: Long): String {
 
 @Preview(showBackground = true, backgroundColor = 0xFF080E1A)
 @Composable
-private fun PermissionsSidebarPreview() {
-    val context = LocalContext.current
-    val dummyPrefs = remember { PrefsManager(context) }
-    val mockState = PermissionsState(
-        isAccessibilityOn = false,
-        isBatteryExempt = true,
-        canDrawOverlays = false,
-        isDeviceAdmin = false,
-        hasUsageStats = true,
-        hasNotification = false,
-        visitedAutostart = false,
-        visitedMiuiPower = false,
+fun PermissionsSidebarPreview() {
+    val dummyState = PermissionsState(
+        isAccessibilityOn = true,
+        isBatteryExempt   = false,
+        canDrawOverlays   = false,
+        isDeviceAdmin     = true,
+        hasUsageStats     = true,
+        hasNotification   = false,
+        visitedAutostart  = false,
+        visitedMiuiPower  = false,
         visitedMiuiBgPopup = false
     )
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF080E1A))) {
-        PermissionsSidebar(
-            prefs = dummyPrefs,
-            permissionsState = mockState,
-            onRefresh = {},
-            onClose = {}
-        )
-    }
+    PermissionsSidebar(
+        prefs            = PrefsManager(LocalContext.current),
+        permissionsState = dummyState,
+        onRefresh        = {},
+        onClose          = {}
+    )
 }

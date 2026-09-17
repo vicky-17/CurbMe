@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.curbme.app.data.local.prefs.PrefsManager
+import com.curbme.app.ui.theme.CurbMeTheme
 
 /**
  * PinSetupScreen remains in Kotlin.
@@ -35,7 +36,7 @@ fun PinSetupScreen(onPinSaved: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0F172A))
+            .background(CurbMeTheme.colors.bgDeep)
             .padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -44,7 +45,7 @@ fun PinSetupScreen(onPinSaved: () -> Unit) {
             text = "🔒 Set Parent PIN",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = CurbMeTheme.colors.textPrimary
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -52,7 +53,7 @@ fun PinSetupScreen(onPinSaved: () -> Unit) {
         Text(
             text = "This PIN protects the parental settings.\nKeep it secret from children.",
             fontSize = 14.sp,
-            color = Color(0xFF94A3B8),
+            color = CurbMeTheme.colors.textSubtle,
             textAlign = TextAlign.Center
         )
 
@@ -61,13 +62,13 @@ fun PinSetupScreen(onPinSaved: () -> Unit) {
         OutlinedTextField(
             value = pin,
             onValueChange = { if (it.length <= 6) pin = it },
-            label = { Text("Create PIN", color = Color(0xFF94A3B8)) },
+            label = { Text("Create PIN", color = CurbMeTheme.colors.textSubtle) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFF334155),
+                focusedBorderColor = CurbMeTheme.colors.accentBlue,
+                unfocusedBorderColor = CurbMeTheme.colors.textMuted,
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White
             ),
@@ -79,13 +80,13 @@ fun PinSetupScreen(onPinSaved: () -> Unit) {
         OutlinedTextField(
             value = confirmPin,
             onValueChange = { if (it.length <= 6) confirmPin = it },
-            label = { Text("Confirm PIN", color = Color(0xFF94A3B8)) },
+            label = { Text("Confirm PIN", color = CurbMeTheme.colors.textSubtle) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFF334155),
+                focusedBorderColor = CurbMeTheme.colors.accentBlue,
+                unfocusedBorderColor = CurbMeTheme.colors.textMuted,
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White
             ),
@@ -96,7 +97,7 @@ fun PinSetupScreen(onPinSaved: () -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = errorMessage,
-                color = Color(0xFFEF4444),
+                color = CurbMeTheme.colors.accentRed,
                 fontSize = 13.sp
             )
         }
@@ -123,7 +124,7 @@ fun PinSetupScreen(onPinSaved: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+            colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentBlue),
             enabled = pin.isNotEmpty() && confirmPin.isNotEmpty()
         ) {
             Text("Save PIN & Continue →", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)

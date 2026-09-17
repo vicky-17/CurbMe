@@ -21,10 +21,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 
-private val BgDeep = Color(0xFF04040C)
-private val AccentTeal = Color(0xFF14B8A6)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond = Color(0xFF94A3B8)
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @Composable
 fun MindfulPauseDialog(
@@ -60,7 +57,7 @@ fun MindfulPauseDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BgDeep)
+                .background(CurbMeTheme.colors.bgDeep)
                 .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -74,8 +71,8 @@ fun MindfulPauseDialog(
                     modifier = Modifier
                         .size((120 * pulseScale).dp)
                         .clip(CircleShape)
-                        .background(AccentTeal.copy(alpha = 0.15f))
-                        .border(2.dp, AccentTeal.copy(alpha = 0.6f), CircleShape),
+                        .background(CurbMeTheme.colors.accentCyan.copy(alpha = 0.15f))
+                        .border(2.dp, CurbMeTheme.colors.accentCyan.copy(alpha = 0.6f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("🧘", fontSize = 36.sp)
@@ -85,7 +82,7 @@ fun MindfulPauseDialog(
 
                 Text(
                     text = "Take a Deep Breath",
-                    color = TextPrimary,
+                    color = CurbMeTheme.colors.textPrimary,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
@@ -95,7 +92,7 @@ fun MindfulPauseDialog(
 
                 Text(
                     text = "Are you opening $appName intentionally, or out of impulse?",
-                    color = TextSecond,
+                    color = CurbMeTheme.colors.textSecondary,
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,
                     lineHeight = 20.sp,
@@ -109,8 +106,8 @@ fun MindfulPauseDialog(
                     onClick = onProceed,
                     enabled = secondsRemaining == 0,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AccentTeal,
-                        disabledContainerColor = Color(0xFF1E293B)
+                        containerColor = CurbMeTheme.colors.accentCyan,
+                        disabledContainerColor = CurbMeTheme.colors.bgElevated
                     ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
@@ -138,7 +135,7 @@ fun MindfulPauseDialog(
                 ) {
                     Text(
                         text = "Stay Focused & Go Back",
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp
                     )

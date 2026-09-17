@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BugReport
-import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.*
@@ -20,16 +19,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.curbme.app.core.utils.DataWiper
-import com.curbme.app.data.local.db.AppDatabase
 import com.curbme.app.ui.components.cards.ActionCard
 import com.curbme.app.ui.components.common.SectionLabel
 import com.curbme.app.ui.theme.CurbMeTheme
 import java.lang.RuntimeException
-import kotlin.system.exitProcess
-
-// Reusable local palette variables to sync with your main dashboard skin theme[cite: 1]
-private val TextPrimary = Color(0xFFF1F5F9) // Main bright text readable layer[cite: 1]
-private val TextSecond  = Color(0xFF64748B) // Subtitle text layer[cite: 1]
 
 @Composable
 fun SettingsScreen(
@@ -45,9 +38,9 @@ fun SettingsScreen(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF04040c), // BgDeep
+                        CurbMeTheme.colors.bgDeep,
                         Color(0xFF080B1A), // Deep subtle tint
-                        Color(0xFF04040c)
+                        CurbMeTheme.colors.bgDeep
                     )
                 )
             )
@@ -96,8 +89,6 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(12.dp))
-
-
         }
     }
 
@@ -120,20 +111,18 @@ fun SettingsScreen(
                     Text("Cancel")
                 }
             },
-            containerColor = Color.White.copy(alpha = 0.07f),
-            titleContentColor = TextPrimary,
-            textContentColor = TextSecond,
-            modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
+            containerColor = CurbMeTheme.colors.glassBg,
+            titleContentColor = CurbMeTheme.colors.textPrimary,
+            textContentColor = CurbMeTheme.colors.textSecondary,
+            modifier = Modifier.border(1.dp, CurbMeTheme.colors.glassBorder, CurbMeTheme.shapes.cardLarge)
         )
     }
 }
 
-// --- ANDROID STUDIO SPLIT-VIEW PREVIEW ---
 @Preview(name = "Settings Operational Interface", showBackground = true, backgroundColor = 0xFF080E1A)
 @Composable
 fun SettingsScreenPreview() {
     CurbMeTheme {
-        // We pass an empty lambda block '{}' to fulfill the callback requirement for preview layout stability[cite: 1]
         SettingsScreen(
             onNavigateToPermissions = {},
             onChangePinClick = {}

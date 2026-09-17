@@ -29,23 +29,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.curbme.app.data.models.AppUsageInfo
+import com.curbme.app.ui.theme.CurbMeTheme
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
-
-// ── Liquid Glass Palette ──────────────────────────────────────────────────────
-private val GlassBg       = Color(0xFFf5f6fb).copy(alpha = 0.07f)
-private val GlassBorder   = Color(0xFFf5f6fb).copy(alpha = 0.16f)
-private val AccentBlue     = Color(0xFF3B82F6)
-private val AccentViolet   = Color(0xFF8B5CF6)
-private val AccentPink     = Color(0xFFEC4899)
-private val AccentOrange   = Color(0xFFF59E0B)
-private val AccentYellow   = Color(0xFFFACC15)
-private val AccentTeal     = Color(0xFF14B8A6)
-private val AccentGreen    = Color(0xFF34D399)
-private val TextPrimary    = Color(0xFFf5f6fb)
-private val TextSecond     = Color(0xFFf5f6fb).copy(alpha = 0.62f)
-private val TextMuted      = Color(0xFFf5f6fb).copy(alpha = 0.38f)
 
 @Composable
 fun Modifier.shimmerEffect(): Modifier {
@@ -243,9 +230,9 @@ fun UsageStatsSection(
     Column(modifier = Modifier.fillMaxWidth()) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = GlassBg),
+            colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.glassBg),
             shape = RoundedCornerShape(22.dp),
-            border = BorderStroke(1.dp, GlassBorder)
+            border = BorderStroke(1.dp, CurbMeTheme.colors.glassBorder)
         ) {
             if (!isPermissionGranted) {
                 PermissionRequestCard(onGrant = onGrantPermission)
@@ -298,7 +285,13 @@ private fun UsageHero(
     val topApps = activeStats.take(3)
     val remainingMs = totalTimeMs - topApps.sumOf { it.usageTimeMs }
 
-    val colors = listOf(AccentBlue, AccentViolet, AccentPink, AccentOrange, AccentYellow, AccentTeal)
+    val colors = listOf(
+        CurbMeTheme.colors.accentBlue,
+        CurbMeTheme.colors.accentViolet,
+        CurbMeTheme.colors.accentPink,
+        CurbMeTheme.colors.accentAmber,
+        CurbMeTheme.colors.accentCyan
+    )
 
     Row(
         modifier = Modifier
@@ -320,7 +313,7 @@ private fun UsageHero(
                 modifier = Modifier
                     .fillMaxSize(0.74f)
                     .clip(CircleShape)
-                    .background(Color(0xFF04040c))
+                    .background(CurbMeTheme.colors.bgDeep)
                     .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -329,15 +322,15 @@ private fun UsageHero(
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 ) {
-                    Text(headerTitle, color = TextSecond, fontSize = 8.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    Text(headerTitle, color = CurbMeTheme.colors.textSecondary, fontSize = 8.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                     Text(
                         text = formatDuration(totalTimeMs),
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontSize = 19.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                     if (dateRangeLabel.isNotBlank()) {
-                        Text(dateRangeLabel, color = TextSecond, fontSize = 8.sp, textAlign = TextAlign.Center, maxLines = 1)
+                        Text(dateRangeLabel, color = CurbMeTheme.colors.textSecondary, fontSize = 8.sp, textAlign = TextAlign.Center, maxLines = 1)
                     }
 
                     Spacer(Modifier.height(2.dp))
@@ -345,7 +338,7 @@ private fun UsageHero(
                     if (subtitleText.isNotBlank()) {
                         Text(
                             text = subtitleText,
-                            color = if (isLessVsPrevious) AccentGreen else Color(0xFFF87171),
+                            color = if (isLessVsPrevious) CurbMeTheme.colors.accentGreen else Color(0xFFF87171),
                             fontSize = 8.5.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
@@ -402,7 +395,7 @@ private fun LegendItem(name: String, duration: String, color: Color, icon: Any?)
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 name,
-                color = TextPrimary,
+                color = CurbMeTheme.colors.textPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -410,7 +403,7 @@ private fun LegendItem(name: String, duration: String, color: Color, icon: Any?)
             )
             Text(
                 text = duration,
-                color = TextSecond,
+                color = CurbMeTheme.colors.textSecondary,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 lineHeight = 14.sp
@@ -479,9 +472,9 @@ private fun InsightCard(comparison: Int) {
     Card(
         modifier = Modifier.fillMaxWidth()
             .padding(horizontal = 10.dp),
-        colors = CardDefaults.cardColors(containerColor = GlassBg),
+        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.glassBg),
         shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, GlassBorder)
+        border = BorderStroke(1.dp, CurbMeTheme.colors.glassBorder)
     ) {
         Row(
             modifier = Modifier.padding(10.dp),
@@ -490,7 +483,7 @@ private fun InsightCard(comparison: Int) {
             Box(
                 modifier = Modifier
                     .size(38.dp)
-                    .background(Brush.linearGradient(listOf(AccentBlue.copy(0.5f), AccentViolet.copy(0.5f))), RoundedCornerShape(12.dp))
+                    .background(Brush.linearGradient(listOf(CurbMeTheme.colors.accentBlue.copy(0.5f), CurbMeTheme.colors.accentViolet.copy(0.5f))), RoundedCornerShape(12.dp))
                     .border(1.dp, Color.White.copy(0.3f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
@@ -501,17 +494,17 @@ private fun InsightCard(comparison: Int) {
             Text(
                 text = buildAnnotatedString {
                     append("Your screen time is ")
-                    withStyle(SpanStyle(color = AccentGreen, fontWeight = FontWeight.Bold)) {
-                        append("${kotlin.math.abs(comparison)}% ${if (isLess) "less" else "more"}")
+                    withStyle(SpanStyle(color = CurbMeTheme.colors.accentGreen, fontWeight = FontWeight.Bold)) {
+                        append("${abs(comparison)}% ${if (isLess) "less" else "more"}")
                     }
                     append(" than yesterday. ${if (isLess) "Keep it up!" else "Try to focus!"}")
                 },
-                color = TextSecond,
+                color = CurbMeTheme.colors.textSecondary,
                 fontSize = 12.5.sp,
                 lineHeight = 18.sp,
                 modifier = Modifier.weight(1f)
             )
-            Icon(Icons.Rounded.ChevronRight, null, tint = TextMuted, modifier = Modifier.size(16.dp))
+            Icon(Icons.Rounded.ChevronRight, null, tint = CurbMeTheme.colors.textMuted, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -524,7 +517,7 @@ private fun MostUsedAppsSection(stats: List<AppUsageInfo>, onShowAll: () -> Unit
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Most used apps", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
+            Text("Most used apps", color = CurbMeTheme.colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
             Text(
                 "Show all",
                 color = Color(0xFF7fb4ff),
@@ -549,7 +542,7 @@ private fun MostUsedAppsSection(stats: List<AppUsageInfo>, onShowAll: () -> Unit
 
 @Composable
 private fun AppRow(app: AppUsageInfo, fraction: Float, index: Int) {
-    val colors = listOf(AccentBlue, AccentViolet, AccentGreen)
+    val colors = listOf(CurbMeTheme.colors.accentBlue, CurbMeTheme.colors.accentViolet, CurbMeTheme.colors.accentGreen)
     Row(
         modifier = Modifier.padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -567,8 +560,8 @@ private fun AppRow(app: AppUsageInfo, fraction: Float, index: Int) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(app.appName, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                Text(formatDurationShort(app.usageTimeMs), color = TextSecond, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                Text(app.appName, color = CurbMeTheme.colors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text(formatDurationShort(app.usageTimeMs), color = CurbMeTheme.colors.textSecondary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(6.dp))
             Box(
@@ -589,7 +582,7 @@ private fun AppRow(app: AppUsageInfo, fraction: Float, index: Int) {
             }
         }
         Spacer(Modifier.width(2.dp))
-        Icon(Icons.Rounded.ChevronRight, null, tint = TextMuted, modifier = Modifier.size(15.dp))
+        Icon(Icons.Rounded.ChevronRight, null, tint = CurbMeTheme.colors.textMuted, modifier = Modifier.size(15.dp))
     }
 }
 
@@ -597,19 +590,19 @@ private fun AppRow(app: AppUsageInfo, fraction: Float, index: Int) {
 private fun PermissionRequestCard(onGrant: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.bgElevated),
         shape = RoundedCornerShape(22.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Usage Access Required", color = TextPrimary, fontWeight = FontWeight.Bold)
+            Text("Usage Access Required", color = CurbMeTheme.colors.textPrimary, fontWeight = FontWeight.Bold)
             Text(
                 "Enable insights to see your dashboard data.",
-                color = TextSecond,
+                color = CurbMeTheme.colors.textSecondary,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
-            Button(onClick = onGrant, colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)) {
+            Button(onClick = onGrant, colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentBlue)) {
                 Text("Grant Permission")
             }
         }

@@ -50,10 +50,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-private val AccentCyan = Color(0xFF06B6D4)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond = Color(0xFF64748B)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UsageBreakdownScreen(
@@ -105,9 +101,9 @@ fun UsageBreakdownContent(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF04040c), // BgDeep
+                        CurbMeTheme.colors.bgDeep,
                         Color(0xFF080B1A), // Deep subtle tint
-                        Color(0xFF04040c)
+                        CurbMeTheme.colors.bgDeep
                     )
                 )
             )
@@ -142,12 +138,12 @@ fun UsageBreakdownContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     IconButton(onClick = { onChangeWeek(-1) }) {
-                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, tint = AccentCyan)
+                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, tint = CurbMeTheme.colors.accentCyan)
                     }
                     
                     Text(
                         text = getWeekRangeLabel(weekOffset),
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
                     )
@@ -159,7 +155,7 @@ fun UsageBreakdownContent(
                         Icon(
                             Icons.AutoMirrored.Rounded.KeyboardArrowRight, 
                             null, 
-                            tint = if (weekOffset < 0) AccentCyan else TextSecond.copy(alpha = 0.3f)
+                            tint = if (weekOffset < 0) CurbMeTheme.colors.accentCyan else CurbMeTheme.colors.textSecondary.copy(alpha = 0.3f)
                         )
                     }
                 }
@@ -238,14 +234,14 @@ fun UsageBreakdownContent(
                         ) {
                             Text(
                                 "WEEKLY ACTIVITY",
-                                color = AccentCyan,
+                                color = CurbMeTheme.colors.accentCyan,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 1.sp
                             )
                             Text(
                                 "Swipe ◄ ►",
-                                color = TextSecond.copy(alpha = 0.6f),
+                                color = CurbMeTheme.colors.textSecondary.copy(alpha = 0.6f),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -287,14 +283,14 @@ fun UsageBreakdownContent(
                 ) {
                     Text(
                         text = formatDuration(totalTime),
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Black
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(
                         text = if (weekOffset == 0 && selectedIndex == 6) "TOTAL TODAY" else "DAILY TOTAL",
-                        color = TextSecond,
+                        color = CurbMeTheme.colors.textSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 6.dp)
@@ -336,6 +332,7 @@ private fun WeeklyBarChart(
     onDaySelected: (Int) -> Unit
 ) {
     val barAnimProgress = remember { Animatable(0f) }
+    val accentCyan = CurbMeTheme.colors.accentCyan
 
     LaunchedEffect(data) {
         barAnimProgress.snapTo(0f)
@@ -373,7 +370,7 @@ private fun WeeklyBarChart(
 
                 // Draw Bar
                 drawRoundRect(
-                    color = if (i == selectedIndex) AccentCyan else AccentCyan.copy(alpha = 0.3f),
+                    color = if (i == selectedIndex) accentCyan else accentCyan.copy(alpha = 0.3f),
                     topLeft = Offset(x - barWidth / 2f, height * 0.8f - animatedBarHeight),
                     size = Size(barWidth, animatedBarHeight),
                     cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
@@ -402,7 +399,7 @@ private fun WeeklyBarChart(
                 ) {
                     Text(
                         day.label,
-                        color = if (i == selectedIndex) AccentCyan else TextSecond,
+                        color = if (i == selectedIndex) CurbMeTheme.colors.accentCyan else CurbMeTheme.colors.textSecondary,
                         fontSize = 11.sp,
                         fontWeight = if (i == selectedIndex) FontWeight.Bold else FontWeight.Normal,
                         modifier = Modifier.padding(bottom = 4.dp)
@@ -418,9 +415,9 @@ private fun DetailedAppUsageRow(app: AppUsageInfo) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
-        shape = RoundedCornerShape(22.dp)
+            .border(1.dp, CurbMeTheme.colors.glassBorder, CurbMeTheme.shapes.cardLarge),
+        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.glassBg),
+        shape = CurbMeTheme.shapes.cardLarge
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -442,13 +439,13 @@ private fun DetailedAppUsageRow(app: AppUsageInfo) {
             Spacer(Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(app.appName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(app.appName, color = CurbMeTheme.colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(app.category.uppercase(), color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    Text(app.category.uppercase(), color = CurbMeTheme.colors.accentCyan, fontSize = 10.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.width(8.dp))
                     Text(
                         "• ${app.launchCount} launches",
-                        color = TextSecond,
+                        color = CurbMeTheme.colors.textSecondary,
                         fontSize = 11.sp
                     )
                 }
@@ -456,7 +453,7 @@ private fun DetailedAppUsageRow(app: AppUsageInfo) {
 
             Text(
                 formatDuration(app.usageTimeMs),
-                color = TextPrimary,
+                color = CurbMeTheme.colors.textPrimary,
                 fontWeight = FontWeight.Black,
                 fontSize = 15.sp
             )

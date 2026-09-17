@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.curbme.app.ui.theme.CurbMeTheme
 
 /**
  * OnboardingScreen remains in Kotlin.
@@ -23,7 +24,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0F172A)) // Your app's core dark slate color
+            .background(CurbMeTheme.colors.bgDeep)
             .padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -32,7 +33,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
         Icon(
             imageVector = Icons.Default.CheckCircle,
             contentDescription = "App Logo",
-            tint = Color(0xFF3B82F6),
+            tint = CurbMeTheme.colors.accentBlue,
             modifier = Modifier.size(100.dp)
         )
 
@@ -42,7 +43,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
             text = "Welcome to CurbMe",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = CurbMeTheme.colors.textPrimary,
             textAlign = TextAlign.Center
         )
 
@@ -51,7 +52,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
         Text(
             text = "Take control of digital well-being. Monitor app usage, filter harmful content, and block distracting shorts with ease.",
             fontSize = 16.sp,
-            color = Color(0xFF94A3B8),
+            color = CurbMeTheme.colors.textSubtle,
             textAlign = TextAlign.Center,
             lineHeight = 24.sp
         )
@@ -65,7 +66,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
                 .fillMaxWidth()
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF3B82F6)
+                containerColor = CurbMeTheme.colors.accentBlue
             ),
             shape = MaterialTheme.shapes.medium
         ) {
@@ -82,7 +83,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
         Text(
             text = "By continuing, you agree to allow CurbMe to monitor device usage for parental control purposes.",
             fontSize = 12.sp,
-            color = Color(0xFF475569),
+            color = CurbMeTheme.colors.textMuted,
             textAlign = TextAlign.Center
         )
     }

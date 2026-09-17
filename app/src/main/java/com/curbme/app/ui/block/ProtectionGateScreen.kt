@@ -24,17 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.curbme.app.ui.theme.CurbMeTheme
 
-// ── Palette (matches the app's existing dark theme) ───────────────────────────
-private val BgTop      = Color(0xFF080E1A)
-private val BgBottom   = Color(0xFF0D1520)
-private val CardBg     = Color(0xFF111827)
-private val AccentBlue = Color(0xFF3B82F6)
-private val AccentRed  = Color(0xFFEF4444)
-private val AccentAmber = Color(0xFFF59E0B)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond  = Color(0xFF64748B)
-private val DividerCol  = Color(0xFF1E293B)
-
 // ── Data model for a gate action button ──────────────────────────────────────
 
 /**
@@ -104,15 +93,15 @@ fun ProtectionGateScreen(
     )
 
     val ringColor = when (severity) {
-        GateSeverity.CRITICAL -> AccentRed
-        GateSeverity.WARNING  -> AccentAmber
-        GateSeverity.INFO     -> AccentBlue
+        GateSeverity.CRITICAL -> CurbMeTheme.colors.accentRed
+        GateSeverity.WARNING  -> CurbMeTheme.colors.accentAmber
+        GateSeverity.INFO     -> CurbMeTheme.colors.accentBlue
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(BgTop, BgBottom)))
+            .background(Brush.verticalGradient(listOf(CurbMeTheme.colors.bgDeep, CurbMeTheme.colors.bgDeep)))
             // Consume all background touches — child cannot tap through the gate
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -165,7 +154,7 @@ fun ProtectionGateScreen(
             // ── Title ─────────────────────────────────────────────────────────
             Text(
                 text       = title,
-                color      = TextPrimary,
+                color      = CurbMeTheme.colors.textPrimary,
                 fontSize   = 24.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign  = TextAlign.Center,
@@ -177,7 +166,7 @@ fun ProtectionGateScreen(
             // ── Message ───────────────────────────────────────────────────────
             Text(
                 text      = message,
-                color     = TextSecond,
+                color     = CurbMeTheme.colors.textSecondary,
                 fontSize  = 15.sp,
                 textAlign = TextAlign.Center,
                 lineHeight = 22.sp
@@ -188,7 +177,7 @@ fun ProtectionGateScreen(
                 Spacer(Modifier.height(24.dp))
 
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = CardBg),
+                    colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.bgCard),
                     shape  = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -224,7 +213,7 @@ fun ProtectionGateScreen(
                                 Spacer(Modifier.width(10.dp))
                                 Text(
                                     step,
-                                    color      = TextPrimary.copy(alpha = 0.9f),
+                                    color      = CurbMeTheme.colors.textPrimary.copy(alpha = 0.9f),
                                     fontSize   = 13.sp,
                                     lineHeight = 18.sp,
                                     modifier   = Modifier.weight(1f)
@@ -258,7 +247,7 @@ fun ProtectionGateScreen(
                     OutlinedButton(
                         onClick  = action.onClick,
                         colors   = ButtonDefaults.outlinedButtonColors(
-                            contentColor = TextSecond
+                            contentColor = CurbMeTheme.colors.textSecondary
                         ),
                         shape    = RoundedCornerShape(12.dp),
                         modifier = Modifier

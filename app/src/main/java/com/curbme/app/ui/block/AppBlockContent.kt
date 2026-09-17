@@ -20,37 +20,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.curbme.app.ui.theme.CurbMeTheme
 import com.curbme.app.ui.theme.inknutAntiqua
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
-fun FullBlockPreview() {
+fun AppBlockContentPreview() {
     AppBlockContent(
         appName = "Instagram",
-        reason = "Stay Focused mode is active",
-        planType = "STAY_FOCUSED",
-        onGoHome = {},
-        onRegain = {}
-    )
-}
-
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
-@Composable
-fun BottomSheetBlockPreview() {
-    AppBlockContent(
-        appName = "YouTube",
-        reason = "Daily time limit reached",
+        reason = "Daily limit of 30 mins reached",
         planType = "TIME_LIMIT",
         onGoHome = {},
         onRegain = {}
     )
 }
-
-private val ScreenBg = Color(0xFF080E1A)
-private val CardBg = Color(0xFF111827)
-private val AccentCyan = Color(0xFF06B6D4)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond = Color(0xFF64748B)
 
 @Composable
 fun AppBlockContent(
@@ -60,7 +43,7 @@ fun AppBlockContent(
     onGoHome: () -> Unit,
     onRegain: (Int) -> Unit
 ) {
-    if (planType == "STAY_FOCUSED") {
+    if (planType == "FULL_BLOCK") {
         FullBlockUI(appName, reason, onGoHome)
     } else {
         BottomSheetBlockUI(appName, reason, onGoHome, onRegain)
@@ -71,7 +54,7 @@ fun AppBlockContent(
 private fun FullBlockUI(appName: String, reason: String, onGoHome: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = ScreenBg
+        color = CurbMeTheme.colors.bgDeep
     ) {
         Box(
             modifier = Modifier
@@ -83,13 +66,13 @@ private fun FullBlockUI(appName: String, reason: String, onGoHome: () -> Unit) {
                 Icon(
                     imageVector = Icons.Rounded.Lock,
                     contentDescription = null,
-                    tint = AccentCyan,
+                    tint = CurbMeTheme.colors.accentCyan,
                     modifier = Modifier.size(64.dp)
                 )
                 Spacer(Modifier.height(24.dp))
                 Text(
                     text = "🛡️ CurbMe",
-                    color = TextPrimary,
+                    color = CurbMeTheme.colors.textPrimary,
                     fontFamily = inknutAntiqua,
                     fontSize = 28.sp,
                     textAlign = TextAlign.Center
@@ -97,21 +80,21 @@ private fun FullBlockUI(appName: String, reason: String, onGoHome: () -> Unit) {
                 Spacer(Modifier.height(16.dp))
                 Text(
                     text = "$appName is restricted",
-                    color = TextPrimary,
+                    color = CurbMeTheme.colors.textPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
                     textAlign = TextAlign.Center
                 )
                 Text(
                     text = reason,
-                    color = AccentCyan,
+                    color = CurbMeTheme.colors.accentCyan,
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(64.dp))
                 Button(
                     onClick = onGoHome,
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                    colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentCyan),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().height(56.dp)
                 ) {
@@ -132,15 +115,14 @@ private fun BottomSheetBlockUI(
     onRegain: (Int) -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        // Transparent top to allow seeing the app (but we will capture touches in Manager)
         Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
         
         Card(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.5f), // Increased height to half of the screen
-            colors = CardDefaults.cardColors(containerColor = ScreenBg),
+                .fillMaxHeight(0.5f),
+            colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.bgDeep),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
         ) {
@@ -149,36 +131,36 @@ private fun BottomSheetBlockUI(
                     .fillMaxSize()
                     .padding(horizontal = 24.dp, vertical = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween // Spread content to fill height
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         modifier = Modifier
                             .size(40.dp, 4.dp)
                             .clip(CircleShape)
-                            .background(TextSecond.copy(alpha = 0.3f))
+                            .background(CurbMeTheme.colors.textSecondary.copy(alpha = 0.3f))
                     )
                     Spacer(Modifier.height(32.dp))
                     
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Timer, null, tint = AccentCyan, modifier = Modifier.size(28.dp))
+                        Icon(Icons.Rounded.Timer, null, tint = CurbMeTheme.colors.accentCyan, modifier = Modifier.size(28.dp))
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = appName,
-                            color = TextPrimary,
+                            color = CurbMeTheme.colors.textPrimary,
                             fontWeight = FontWeight.Black,
                             fontSize = 24.sp,
                             fontFamily = inknutAntiqua
                         )
                     }
                     
-                    Text(reason, color = TextSecond, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+                    Text(reason, color = CurbMeTheme.colors.textSecondary, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         "Quick Regain Options",
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         modifier = Modifier.fillMaxWidth(),
@@ -193,8 +175,8 @@ private fun BottomSheetBlockUI(
                                 onClick = { onRegain(mins) },
                                 modifier = Modifier.weight(1f).height(54.dp),
                                 shape = RoundedCornerShape(16.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentCyan),
-                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = CurbMeTheme.colors.accentCyan),
+                                border = BorderStroke(1.dp, CurbMeTheme.colors.accentCyan.copy(alpha = 0.4f))
                             ) {
                                 Text("${mins}m", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
@@ -208,9 +190,9 @@ private fun BottomSheetBlockUI(
                     shape = RoundedCornerShape(18.dp),
                     modifier = Modifier.fillMaxWidth().height(60.dp)
                 ) {
-                    Icon(Icons.Rounded.Home, contentDescription = null, tint = TextPrimary)
+                    Icon(Icons.Rounded.Home, contentDescription = null, tint = CurbMeTheme.colors.textPrimary)
                     Spacer(Modifier.width(10.dp))
-                    Text("GO TO HOME", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("GO TO HOME", color = CurbMeTheme.colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
         }

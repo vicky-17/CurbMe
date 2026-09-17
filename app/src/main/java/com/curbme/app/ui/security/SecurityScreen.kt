@@ -54,12 +54,6 @@ import com.curbme.app.ui.theme.CurbMeTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-// ── Color palette ─────────────────────────────────────────────────────────────
-private val ScreenBg   = Color(0xFF080E1A)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond  = Color(0xFF64748B)
-private val DividerCol  = Color(0xFF1E293B)
-
 @Composable
 fun SecurityScreen(prefs: PrefsManager) {
     val context = LocalContext.current
@@ -177,7 +171,7 @@ fun SecurityScreen(prefs: PrefsManager) {
                 }
             )
 
-            HorizontalDivider(color = DividerCol, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 20.dp))
+            HorizontalDivider(color = CurbMeTheme.colors.divider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 20.dp))
 
             ToggleCard(
                 emoji    = "🔒",

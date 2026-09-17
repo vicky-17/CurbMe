@@ -8,8 +8,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.curbme.app.ui.theme.CurbMeTheme
 
 /**
  * LoadingScreen remains in Kotlin to support Compose UI.
@@ -21,13 +21,13 @@ fun LoadingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0F172A)) // Matches your dark theme
+            .background(CurbMeTheme.colors.bgDeep)
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         CircularProgressIndicator(
-            color = Color(0xFF3B82F6), // Professional Blue
+            color = CurbMeTheme.colors.accentBlue,
             strokeWidth = 4.dp
         )
 
@@ -36,7 +36,7 @@ fun LoadingScreen(
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF94A3B8) // Muted slate color
+            color = CurbMeTheme.colors.textSubtle
         )
     }
 }

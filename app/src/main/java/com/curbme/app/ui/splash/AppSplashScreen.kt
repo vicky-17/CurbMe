@@ -1,7 +1,8 @@
 package com.curbme.app.ui.splash
 
-import com.curbme.app.R
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,18 +20,14 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.curbme.app.R
 import com.curbme.app.ui.theme.CurbMeTheme
 import kotlinx.coroutines.delay
-
-private val BgDeep = Color(0xFF04040C)
-private val AccentBlue = Color(0xFF3B82F6)
-private val AccentViolet = Color(0xFF8B5CF6)
-private val AccentCyan = Color(0xFF06B6D4)
-private val TextSecond = Color(0xFF94A3B8)
 
 @Composable
 fun AppSplashScreen(
@@ -38,35 +35,36 @@ fun AppSplashScreen(
 ) {
     val isPreview = LocalInspectionMode.current
     var progressTarget by remember { mutableFloatStateOf(if (isPreview) 1f else 0f) }
+    
+    val animatedProgress = remember { Animatable(0f) }
 
-    // Smooth Progress Animation
-    val animatedProgress by animateFloatAsState(
-        targetValue = progressTarget,
-        animationSpec = tween(durationMillis = 300, easing = LinearOutSlowInEasing),
-        label = "animatedProgress"
-    )
-
-    // Fast, lightweight progress update
     LaunchedEffect(Unit) {
-        if (isPreview) return@LaunchedEffect
-
-        val totalTime = 800L
-        val steps = 20
-        val stepDelay = totalTime / steps
-
-        for (i in 1..steps) {
-            delay(stepDelay)
-            progressTarget = i / steps.toFloat()
+        if (!isPreview) {
+            delay(50)
+            progressTarget = 0.35f
+            delay(120)
+            progressTarget = 0.75f
+            delay(150)
+            progressTarget = 1.0f
+            delay(180)
+            onSplashFinished()
         }
+    }
 
-        delay(80)
-        onSplashFinished()
+    LaunchedEffect(progressTarget) {
+        animatedProgress.animateTo(
+            targetValue = progressTarget,
+            animationSpec = tween(
+                durationMillis = if (progressTarget == 1.0f) 220 else 280,
+                easing = FastOutSlowInEasing
+            )
+        )
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgDeep),
+            .background(CurbMeTheme.colors.bgDeep),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -74,17 +72,16 @@ fun AppSplashScreen(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.padding(32.dp)
         ) {
-            // Main Icon Card - Static, clean, lightweight
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(96.dp)
                     .clip(RoundedCornerShape(28.dp))
-                    .background(Color(0xFF111827))
+                    .background(CurbMeTheme.colors.bgCard)
                     .border(
                         width = 1.5.dp,
                         brush = Brush.linearGradient(
-                            listOf(AccentCyan, AccentViolet)
+                            listOf(CurbMeTheme.colors.accentCyan, CurbMeTheme.colors.accentViolet)
                         ),
                         shape = RoundedCornerShape(28.dp)
                     )
@@ -99,15 +96,14 @@ fun AppSplashScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // App Name with Gradient Text Effect
             Text(
                 text = "CurbMe",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 1.sp,
-                style = androidx.compose.ui.text.TextStyle(
+                style = TextStyle(
                     brush = Brush.horizontalGradient(
-                        colors = listOf(Color.White, AccentCyan, AccentViolet)
+                        colors = listOf(Color.White, CurbMeTheme.colors.accentCyan, CurbMeTheme.colors.accentViolet)
                     )
                 )
             )
@@ -116,7 +112,7 @@ fun AppSplashScreen(
 
             Text(
                 text = "Digital Wellbeing & Focus Engine",
-                color = TextSecond,
+                color = CurbMeTheme.colors.textSecondary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 0.5.sp
@@ -124,7 +120,6 @@ fun AppSplashScreen(
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Custom Progress Bar Container - Ultra-lightweight GPU scaling
             Box(
                 modifier = Modifier
                     .width(160.dp)
@@ -137,13 +132,13 @@ fun AppSplashScreen(
                         .fillMaxHeight()
                         .fillMaxWidth()
                         .graphicsLayer {
-                            scaleX = animatedProgress.coerceIn(0f, 1f)
+                            scaleX = animatedProgress.value.coerceIn(0f, 1f)
                             transformOrigin = TransformOrigin(0f, 0.5f)
                         }
                         .clip(CircleShape)
                         .background(
                             Brush.horizontalGradient(
-                                colors = listOf(AccentBlue, AccentCyan, AccentViolet)
+                                colors = listOf(CurbMeTheme.colors.accentBlue, CurbMeTheme.colors.accentCyan, CurbMeTheme.colors.accentViolet)
                             )
                         )
                 )
@@ -152,7 +147,7 @@ fun AppSplashScreen(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, backgroundColor = 0xFF04040C)
 @Composable
 fun AppSplashScreenPreview() {
     CurbMeTheme {

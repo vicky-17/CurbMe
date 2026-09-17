@@ -21,16 +21,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
@@ -47,7 +45,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +54,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
 import com.curbme.app.core.base.BaseActivity
 import com.curbme.app.core.utils.PermissionHelper
 import com.curbme.app.core.utils.PersistenceManager
@@ -65,57 +65,11 @@ import com.curbme.app.receiver.CurbMeDeviceAdminReceiver
 import com.curbme.app.ui.auth.AuthViewModel
 import com.curbme.app.ui.auth.PinGateScreen
 import com.curbme.app.ui.auth.PinSetupActivity
-import com.curbme.app.ui.permissions.PermissionsScreen
-import com.curbme.app.ui.settings.SettingsScreen
-import com.curbme.app.ui.sidebar.PermissionsSidebar
-import com.curbme.app.ui.auth.AccountScreen
-import com.curbme.app.ui.theme.CurbMeTheme
-import kotlinx.coroutines.launch
-import com.curbme.app.ui.dashboard.DashboardScreen
-import com.curbme.app.ui.dashboard.UsageBreakdownScreen
 import com.curbme.app.ui.dashboard.UsageViewModel
-import com.curbme.app.ui.security.SecurityScreen
-import com.curbme.app.ui.locks.LocksScreen
+import com.curbme.app.ui.navigation.*
+import com.curbme.app.ui.sidebar.PermissionsSidebar
 import com.curbme.app.ui.splash.AppSplashScreen
-
-// ── Color palette ─────────────────────────────────────────────────────────────
-private val BgDeep      = Color(0xFF080E1A)
-private val BgCard      = Color(0xFF111827)
-private val AccentBlue  = Color(0xFF3B82F6)
-private val AccentRed   = Color(0xFFEF4444)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond  = Color(0xFF64748B)
-private val TextMuted   = Color(0xFF334155)
-
-// ── Bottom Navigation Screen Routes ───────────────────────────────────────────
-enum class Screen(
-    val route: String,
-    val title: String,
-    val icon: String,
-    val contentDescription: String
-) {
-    DASHBOARD("dashboard", "Dashboard", "📊", "Dashboard"),
-    LOCKS("locks", "Locks", "🔒️", "Locks"),
-    SECURITY("security", "Security", "🛡️", "WebLock"),
-    SETTINGS("settings", "Settings", "⚙️", "Settings")
-}
-
-// ── Top-level navigation destinations ─────────────────────────────────────────
-// Sealed class instead of a Boolean flag — scales cleanly if you add more
-// full-screen destinations later (e.g. AppLockDetail, ScheduleEditor, etc.)
-sealed class AppDestination {
-    /** The main shell: TopBar + BottomBar + tab content */
-    object Main : AppDestination()
-
-    /** Full-screen Permissions screen — no TopBar / BottomBar */
-    object Permissions : AppDestination()
-
-    /** Full-screen Account / Login screen */
-    object Account : AppDestination()
-
-    /** Full-screen Usage Breakdown screen */
-    object UsageBreakdown : AppDestination()
-}
+import com.curbme.app.ui.theme.CurbMeTheme
 
 data class PermissionsState(
     val isAccessibilityOn: Boolean,
@@ -203,7 +157,6 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     @Composable
     fun AppContent(prefs: PrefsManager) {
         var isUnlocked by remember { mutableStateOf(false) }
@@ -232,25 +185,25 @@ class MainActivity : BaseActivity() {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Main Navigation Shell
+    // Navigation 3 Main Shell
     // ─────────────────────────────────────────────────────────────────────────
-    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun MainNavigationShell(prefs: PrefsManager, onLock: () -> Unit) {
-        val screens = Screen.entries
-        val pagerState = rememberPagerState(pageCount = { screens.size })
-        val currentScreen = screens[pagerState.currentPage]
-        val scope = rememberCoroutineScope()
-        
-        var sidebarOpen    by remember { mutableStateOf(false) }
-
-        // ── Single source of truth for which top-level destination is active ──
-        var destination by remember { mutableStateOf<AppDestination>(AppDestination.Main) }
-
-        val context       = LocalContext.current
+        val context = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
 
-        var refreshKey       by remember { mutableLongStateOf(System.currentTimeMillis()) }
+        // ── Single Navigation 3 Back Stack ────────────────────────────────────
+        val backStack = rememberNavBackStack(DashboardKey)
+        val currentKey = backStack.lastOrNull() ?: DashboardKey
+
+        // Determine if current destination is a bottom-tab screen
+        val isTabDestination = currentKey is DashboardKey ||
+                currentKey is LocksKey ||
+                currentKey is SecurityKey ||
+                currentKey is SettingsKey
+
+        var sidebarOpen by remember { mutableStateOf(false) }
+        var refreshKey by remember { mutableLongStateOf(System.currentTimeMillis()) }
         var permissionsState by remember { mutableStateOf(getPermissionsState(context)) }
 
         DisposableEffect(lifecycleOwner) {
@@ -264,178 +217,98 @@ class MainActivity : BaseActivity() {
             onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
         }
 
-        // ── System back button / gesture handling ─────────────────────────────
-        // Intercept back press when we're NOT on Main, navigate back instead of
-        // closing the app. BackHandler is inactive when destination == Main so
-        // Android's default back behaviour (exit app) is preserved.
-        BackHandler(enabled = destination != AppDestination.Main) {
-            destination = AppDestination.Main
+        // ── System Back Button Handling ──────────────────────────────────────
+        BackHandler(enabled = backStack.size > 1) {
+            backStack.removeLastOrNull()
         }
-        
+
         val usageViewModel: UsageViewModel = viewModel()
 
         val scrimAlpha by animateFloatAsState(
-            targetValue    = if (sidebarOpen) 0.6f else 0f,
-            animationSpec  = tween(300),
-            label          = "scrim"
+            targetValue = if (sidebarOpen) 0.6f else 0f,
+            animationSpec = tween(300),
+            label = "scrim"
         )
 
-        // ── AnimatedContent: only ONE destination in the composition tree ─────
-        // slideInHorizontally / slideOutHorizontally gives the standard Android
-        // "push forward / pop back" feel. The Scaffold + Sidebar are only
-        // composed when destination == Main, so PermissionsScreen gets a clean,
-        // lean composition tree — fixes the Realme crash.
-        AnimatedContent(
-            targetState = destination,
-            transitionSpec = {
-                if (targetState == AppDestination.Permissions) {
-                    // Navigating forward → slide in from right, old screen exits left
-                    slideInHorizontally(
-                        animationSpec  = tween(300),
-                        initialOffsetX = { fullWidth -> fullWidth }
-                    ) togetherWith slideOutHorizontally(
-                        animationSpec = tween(300),
-                        targetOffsetX = { fullWidth -> -fullWidth }
-                    )
-                } else {
-                    // Navigating back → slide in from left, old screen exits right
-                    slideInHorizontally(
-                        animationSpec  = tween(300),
-                        initialOffsetX = { fullWidth -> -fullWidth }
-                    ) togetherWith slideOutHorizontally(
-                        animationSpec = tween(300),
-                        targetOffsetX = { fullWidth -> -fullWidth }
-                    )
-                }
-            },
-            label = "destination_transition"
-        ) { currentDestination ->
+        val entryProvider = remember(prefs, refreshKey, backStack, usageViewModel, context) {
+            createAppEntryProvider(
+                prefs = prefs,
+                refreshKey = refreshKey,
+                onRefresh = { refreshKey = System.currentTimeMillis() },
+                backStack = backStack,
+                usageViewModel = usageViewModel,
+                activityContext = context
+            )
+        }
 
-            when (currentDestination) {
-
-                // ── MAIN shell (Scaffold + sidebar) ───────────────────────────
-                AppDestination.Main -> {
-                    Box(modifier = Modifier.fillMaxSize().background(BgDeep)) {
-
-                        Scaffold(
-                            topBar = {
-                                DashboardHeader(
-                                    onBack = { sidebarOpen = true },
-                                    onAccountClick = { destination = AppDestination.Account }
-                                )
-                            },
-                            bottomBar = {
-                                GlassNavigationBar(
-                                    currentScreen = currentScreen,
-                                    onScreenSelected = { screen ->
-                                        scope.launch {
-                                            pagerState.animateScrollToPage(screens.indexOf(screen))
-                                        }
+        Box(modifier = Modifier.fillMaxSize().background(CurbMeTheme.colors.bgDeep)) {
+            Scaffold(
+                topBar = {
+                    if (isTabDestination) {
+                        DashboardHeader(
+                            onBack = { sidebarOpen = true },
+                            onAccountClick = { backStack.add(AccountKey) }
+                        )
+                    }
+                },
+                bottomBar = {
+                    if (isTabDestination) {
+                        GlassNavigationBar(
+                            currentTab = currentKey,
+                            onTabSelected = { targetTab ->
+                                if (backStack.lastOrNull() != targetTab) {
+                                    // Replace tab entry on backstack instead of pushing
+                                    val top = backStack.lastOrNull()
+                                    if (top is DashboardKey || top is LocksKey || top is SecurityKey || top is SettingsKey) {
+                                        backStack.removeLastOrNull()
                                     }
-                                )
-                            },
-                            containerColor = BgDeep
-                        ) { innerPadding ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(innerPadding)
-                            ) {
-                                HorizontalPager(
-                                    state = pagerState,
-                                    modifier = Modifier.fillMaxSize(),
-                                    beyondViewportPageCount = 0
-                                ) { page ->
-                                    when (screens[page]) {
-                                        Screen.DASHBOARD -> DashboardScreen(
-                                            prefs           = prefs,
-                                            refreshKey      = refreshKey,
-                                            onRefresh       = { refreshKey = System.currentTimeMillis() },
-                                            onNavigateToUsageStats = { destination = AppDestination.UsageBreakdown },
-                                            usageViewModel = usageViewModel
-                                        )
-                                        Screen.LOCKS    -> LocksScreen(prefs = prefs)
-                                        Screen.SECURITY -> SecurityScreen(prefs = prefs)
-                                        Screen.SETTINGS -> SettingsScreen(
-                                            onNavigateToPermissions = {
-                                                destination = AppDestination.Permissions
-                                            },
-                                            onChangePinClick = {
-                                                startActivity(Intent(this@MainActivity, PinSetupActivity::class.java))
-                                            }
-                                        )
-                                    }
+                                    backStack.add(targetTab)
                                 }
                             }
-                        }
-
-                        // Scrim — rendered above Scaffold, below sidebar
-                        if (scrimAlpha > 0f) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .alpha(scrimAlpha)
-                                    .background(Color.Black)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures { sidebarOpen = false }
-                                    }
-                            )
-                        }
-
-                        // Sidebar — slides in from left, globally accessible
-                        AnimatedVisibility(
-                            visible = sidebarOpen,
-                            enter   = slideInHorizontally(initialOffsetX = { -it }),
-                            exit    = slideOutHorizontally(targetOffsetX = { -it })
-                        ) {
-                            PermissionsSidebar(
-                                prefs            = prefs,
-                                permissionsState = permissionsState,
-                                onRefresh        = { refreshKey = System.currentTimeMillis() },
-                                onClose          = { sidebarOpen = false }
-                            )
-                        }
+                        )
                     }
-                }
-
-                // ── PERMISSIONS full-screen (no TopBar / BottomBar) ───────────
-                // Only this composable is in the tree — Scaffold is fully gone.
-                AppDestination.Permissions -> {
-                    PermissionsScreen(
-                        onBackClick = { destination = AppDestination.Main }
-                    )
-                }
-
-                // ── ACCOUNT full-screen ───────────────────────────────────────
-                AppDestination.Account -> {
-                    AccountScreen(
-                        onBackClick = { destination = AppDestination.Main }
-                    )
-                }
-
-                // ── USAGE BREAKDOWN full-screen ───────────────────────────────
-                AppDestination.UsageBreakdown -> {
-                    UsageBreakdownScreen(
-                        viewModel = usageViewModel,
-                        onBack = { destination = AppDestination.Main }
+                },
+                containerColor = CurbMeTheme.colors.bgDeep
+            ) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(if (isTabDestination) innerPadding else PaddingValues(0.dp))
+                ) {
+                    NavDisplay(
+                        backStack = backStack,
+                        onBack = { backStack.removeLastOrNull() },
+                        entryProvider = entryProvider
                     )
                 }
             }
-        }
-    }
 
-    @Composable
-    fun FullScreenPlaceholder(label: String) {
-        Box(
-            modifier        = Modifier.fillMaxSize().background(BgDeep),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text       = label,
-                color      = TextSecond,
-                fontSize   = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
+            // Scrim for Sidebar
+            if (scrimAlpha > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(scrimAlpha)
+                        .background(Color.Black)
+                        .pointerInput(Unit) {
+                            detectTapGestures { sidebarOpen = false }
+                        }
+                )
+            }
+
+            // Sidebar navigation
+            AnimatedVisibility(
+                visible = sidebarOpen,
+                enter = slideInHorizontally(initialOffsetX = { -it }),
+                exit = slideOutHorizontally(targetOffsetX = { -it })
+            ) {
+                PermissionsSidebar(
+                    prefs = prefs,
+                    permissionsState = permissionsState,
+                    onRefresh = { refreshKey = System.currentTimeMillis() },
+                    onClose = { sidebarOpen = false }
+                )
+            }
         }
     }
 }
@@ -445,7 +318,6 @@ private fun DashboardHeader(
     onBack: () -> Unit,
     onAccountClick: () -> Unit
 ) {
-    val TextPrimary = Color(0xFFF1F5F9)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -453,8 +325,8 @@ private fun DashboardHeader(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .height(56.dp)
             .clip(RoundedCornerShape(28.dp))
-            .background(Color.White.copy(alpha = 0.07f))
-            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(28.dp))
+            .background(CurbMeTheme.colors.glassBg)
+            .border(1.dp, CurbMeTheme.colors.glassBorder, RoundedCornerShape(28.dp))
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -466,14 +338,14 @@ private fun DashboardHeader(
                 Icon(
                     imageVector = Icons.Rounded.Menu,
                     contentDescription = "Menu",
-                    tint = TextPrimary,
+                    tint = CurbMeTheme.colors.textPrimary,
                     modifier = Modifier.size(26.dp)
                 )
             }
 
             Text(
                 text = "CurbMe",
-                color = TextPrimary,
+                color = CurbMeTheme.colors.textPrimary,
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
@@ -484,7 +356,7 @@ private fun DashboardHeader(
                 Icon(
                     imageVector = Icons.Rounded.AccountCircle,
                     contentDescription = "Account",
-                    tint = TextPrimary,
+                    tint = CurbMeTheme.colors.textPrimary,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -492,13 +364,24 @@ private fun DashboardHeader(
     }
 }
 
+private data class TabNavItem(
+    val key: NavKey,
+    val title: String,
+    val icon: String
+)
+
 @Composable
 private fun GlassNavigationBar(
-    currentScreen: Screen,
-    onScreenSelected: (Screen) -> Unit
+    currentTab: NavKey,
+    onTabSelected: (NavKey) -> Unit
 ) {
-    val screens = Screen.entries
-    val selectedIndex = screens.indexOf(currentScreen)
+    val tabs = listOf(
+        TabNavItem(DashboardKey, "Dashboard", "📊"),
+        TabNavItem(LocksKey, "Locks", "🔒️"),
+        TabNavItem(SecurityKey, "Security", "🛡️"),
+        TabNavItem(SettingsKey, "Settings", "⚙️")
+    )
+    val selectedIndex = tabs.indexOfFirst { it.key == currentTab }.coerceAtLeast(0)
 
     Box(
         modifier = Modifier
@@ -506,13 +389,13 @@ private fun GlassNavigationBar(
             .navigationBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .height(64.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.White.copy(alpha = 0.07f))
-            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
+            .clip(CurbMeTheme.shapes.cardLarge)
+            .background(CurbMeTheme.colors.glassBg)
+            .border(1.dp, CurbMeTheme.colors.glassBorder, CurbMeTheme.shapes.cardLarge)
             .padding(6.dp)
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val pillWidth = maxWidth / screens.size
+            val pillWidth = maxWidth / tabs.size
             val pillOffset by animateDpAsState(
                 targetValue = pillWidth * selectedIndex,
                 animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow),
@@ -524,7 +407,7 @@ private fun GlassNavigationBar(
                     .offset { IntOffset(pillOffset.roundToPx(), 0) }
                     .width(pillWidth)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(CurbMeTheme.shapes.card)
                     .background(
                         Brush.verticalGradient(
                             listOf(
@@ -533,12 +416,12 @@ private fun GlassNavigationBar(
                             )
                         )
                     )
-                    .border(1.dp, Color(0xFF96BEFF).copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                    .border(1.dp, Color(0xFF96BEFF).copy(alpha = 0.45f), CurbMeTheme.shapes.card)
             )
         }
 
         Row(modifier = Modifier.fillMaxSize()) {
-            screens.forEachIndexed { index, screen ->
+            tabs.forEachIndexed { index, tab ->
                 val isSelected = selectedIndex == index
                 Box(
                     modifier = Modifier
@@ -547,66 +430,23 @@ private fun GlassNavigationBar(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
-                        ) { onScreenSelected(screen) },
+                        ) { onTabSelected(tab.key) },
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = screen.icon,
+                            text = tab.icon,
                             fontSize = if (isSelected) 20.sp else 18.sp,
                             modifier = Modifier.alpha(if (isSelected) 1f else 0.7f)
                         )
                         Text(
-                            text = screen.title,
+                            text = tab.title,
                             color = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             fontSize = 10.sp
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
-@Composable
-fun MainPreview() {
-    val BgDeep      = Color(0xFF080E1A)
-    val BgCard      = Color(0xFF111827)
-    val AccentBlue  = Color(0xFF3B82F6)
-    val TextPrimary = Color(0xFFF1F5F9)
-    val TextSecond  = Color(0xFF64748B)
-
-    com.curbme.app.ui.theme.CurbMeTheme {
-        Scaffold(
-            topBar = {
-                DashboardHeader(onBack = {}, onAccountClick = {})
-            },
-            bottomBar = {
-                GlassNavigationBar(
-                    currentScreen = Screen.DASHBOARD,
-                    onScreenSelected = {}
-                )
-            },
-            containerColor = BgDeep
-        ) { innerPadding ->
-            Box(modifier = Modifier.padding(innerPadding)) {
-                com.curbme.app.ui.dashboard.DashboardContent(
-                    safeSearchEnabled = true,
-                    blockShorts = false,
-                    isLocked = false,
-                    onSafeSearchToggle = {},
-                    onBlockShortsToggle = {},
-                    onLockClick = {},
-                    onLockdownVpnClick = {},
-                    onNavigateToUsageStats = {},
-                    previewUsageStats = listOf(
-                        com.curbme.app.data.models.AppUsageInfo("com.google.android.youtube", "YouTube", null, 120 * 60 * 1000L, 10),
-                        com.curbme.app.data.models.AppUsageInfo("com.instagram.android", "Instagram", null, 45 * 60 * 1000L, 5)
-                    ),
-                    previewComparisonPercent = -15
-                )
             }
         }
     }

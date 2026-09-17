@@ -16,10 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.curbme.app.core.utils.TimeUtils
 
-private val AccentPink = Color(0xFFEC4899)
-private val AccentViolet = Color(0xFF8B5CF6)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond = Color(0xFF94A3B8)
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @Composable
 fun ReelStatsCard(
@@ -49,7 +46,7 @@ fun ReelStatsCard(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(AccentPink.copy(alpha = 0.15f)),
+                            .background(CurbMeTheme.colors.accentSky.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text("🎬", fontSize = 18.sp)
@@ -58,14 +55,14 @@ fun ReelStatsCard(
                     Column {
                         Text(
                             text = "REELS & SHORTS GUARD",
-                            color = AccentPink,
+                            color = CurbMeTheme.colors.accentSky,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
                         Text(
                             text = "Short Video Scroll Counter",
-                            color = TextSecond,
+                            color = CurbMeTheme.colors.textSecondary,
                             fontSize = 12.sp
                         )
                     }
@@ -76,7 +73,7 @@ fun ReelStatsCard(
                     onCheckedChange = onOverlayToggle,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = AccentPink,
+                        checkedTrackColor = CurbMeTheme.colors.accentSky,
                         uncheckedThumbColor = Color(0xFF64748B),
                         uncheckedTrackColor = Color(0xFF1E293B)
                     )
@@ -97,11 +94,11 @@ fun ReelStatsCard(
                         .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(14.dp))
                         .padding(12.dp)
                 ) {
-                    Text("Reels Scrolled", color = TextSecond, fontSize = 11.sp)
+                    Text("Reels Scrolled", color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "$reelCount",
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -116,11 +113,11 @@ fun ReelStatsCard(
                         .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(14.dp))
                         .padding(12.dp)
                 ) {
-                    Text("Time on Reels", color = TextSecond, fontSize = 11.sp)
+                    Text("Time on Reels", color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = TimeUtils.formatDurationShort(reelTimeMs),
-                        color = AccentViolet,
+                        color = CurbMeTheme.colors.accentViolet,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -132,7 +129,7 @@ fun ReelStatsCard(
             // Subtitle
             Text(
                 text = "Monitors scrolling transitions in YouTube Shorts, Instagram Reels, Snapchat Spotlight, Facebook Reels, and TikTok.",
-                color = TextSecond,
+                color = CurbMeTheme.colors.textSecondary,
                 fontSize = 11.sp,
                 lineHeight = 15.sp
             )

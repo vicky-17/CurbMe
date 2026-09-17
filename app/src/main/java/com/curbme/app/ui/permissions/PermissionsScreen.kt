@@ -27,8 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.curbme.app.ui.theme.CurbMeTheme
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun PermissionsScreen(
@@ -118,9 +118,9 @@ fun PermissionsScreenContent(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF04040c), // BgDeep
+                        CurbMeTheme.colors.bgDeep,
                         Color(0xFF080B1A), // Deep subtle tint
-                        Color(0xFF04040c)
+                        CurbMeTheme.colors.bgDeep
                     )
                 )
             )

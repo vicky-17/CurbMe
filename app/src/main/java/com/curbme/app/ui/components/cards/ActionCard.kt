@@ -18,12 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// Sync with Digital Monk theme colors
-private val BgCard      = Color(0xFF111827)
-private val AccentBlue  = Color(0xFF3B82F6)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond  = Color(0xFF64748B)
+import com.curbme.app.ui.theme.CurbMeTheme
 
 /**
  * ActionCard designed to match the SettingsNavigationCard style.
@@ -37,12 +32,12 @@ fun ActionCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
-        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.glassBg),
+        shape = CurbMeTheme.shapes.cardLarge,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
-            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
+            .border(1.dp, CurbMeTheme.colors.glassBorder, CurbMeTheme.shapes.cardLarge)
             .clickable(onClick = onClick)
     ) {
         Row(
@@ -52,13 +47,13 @@ fun ActionCard(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(AccentBlue.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
+                    .background(CurbMeTheme.colors.accentBlue.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = AccentBlue,
+                    tint = CurbMeTheme.colors.accentBlue,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -69,12 +64,12 @@ fun ActionCard(
                 Text(
                     text = title,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
+                    color = CurbMeTheme.colors.textPrimary,
                     fontSize = 15.sp
                 )
                 Text(
                     text = description,
-                    color = TextSecond,
+                    color = CurbMeTheme.colors.textSecondary,
                     fontSize = 12.sp,
                     lineHeight = 16.sp
                 )
@@ -83,7 +78,7 @@ fun ActionCard(
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
                 contentDescription = null,
-                tint = TextSecond,
+                tint = CurbMeTheme.colors.textSecondary,
                 modifier = Modifier.size(20.dp)
             )
         }

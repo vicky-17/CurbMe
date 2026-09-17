@@ -52,18 +52,11 @@ import com.curbme.app.ui.components.dialogs.AlwaysOnVpnDialog
 import com.curbme.app.ui.components.dialogs.LockSettingsDialog
 import com.curbme.app.ui.components.dialogs.ShortsConfigBottomSheet
 import com.curbme.app.ui.contentfilter.WebsiteUsageCard
+import com.curbme.app.ui.theme.CurbMeTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-
-private val BgDeep      = Color(0xFF04040c)
-private val AccentBlue  = Color(0xFF3B82F6)
-private val AccentPink  = Color(0xFF38BDF8) // App main sky blue accent
-private val AccentViolet = Color(0xFF8B5CF6)
-private val TextPrimary = Color(0xFFf5f6fb)
-private val TextSecond  = Color(0xFFf5f6fb).copy(alpha = 0.62f)
-private val TextMuted   = Color(0xFFf5f6fb).copy(alpha = 0.38f)
 
 @Composable
 fun DashboardScreen(
@@ -338,9 +331,9 @@ fun DashboardContent(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        BgDeep,
+                        CurbMeTheme.colors.bgDeep,
                         Color(0xFF080B1A), // Deep subtle tint
-                        BgDeep
+                        CurbMeTheme.colors.bgDeep
                     )
                 )
             )
@@ -497,7 +490,7 @@ private fun DashboardTabs(
                 ) {
                     Text(
                         text = title,
-                        color = if (isSelected) Color(0xFFeaf1ff) else TextSecond,
+                        color = if (isSelected) Color(0xFFeaf1ff) else CurbMeTheme.colors.textSecondary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.5.sp
                     )
@@ -519,11 +512,11 @@ private fun ShortsGuardCard(
     onGrantPermission: () -> Unit
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
-        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.glassBg),
+        shape = CurbMeTheme.shapes.cardLarge,
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
+            .border(1.dp, CurbMeTheme.colors.glassBorder, CurbMeTheme.shapes.cardLarge)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -534,24 +527,24 @@ private fun ShortsGuardCard(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(AccentPink.copy(alpha = 0.15f)),
+                        .background(CurbMeTheme.colors.accentSky.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("📵", fontSize = 20.sp)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Block Short Videos", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 15.sp)
-                    Text("YouTube Shorts, Reels, TikTok & more", color = TextSecond, fontSize = 11.sp)
+                    Text("Block Short Videos", fontWeight = FontWeight.Bold, color = CurbMeTheme.colors.textPrimary, fontSize = 15.sp)
+                    Text("YouTube Shorts, Reels, TikTok & more", color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
                 }
                 Switch(
                     checked = isEnabled,
                     onCheckedChange = onToggle,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = AccentBlue,
+                        checkedTrackColor = CurbMeTheme.colors.accentBlue,
                         uncheckedThumbColor = Color(0xFF94A3B8),
-                        uncheckedTrackColor = TextMuted
+                        uncheckedTrackColor = CurbMeTheme.colors.textMuted
                     )
                 )
             }
@@ -571,11 +564,11 @@ private fun ShortsGuardCard(
                         .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(14.dp))
                         .padding(12.dp)
                 ) {
-                    Text("Reels Scrolled Today", color = TextSecond, fontSize = 11.sp)
+                    Text("Reels Scrolled Today", color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "$reelCount",
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -589,11 +582,11 @@ private fun ShortsGuardCard(
                         .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(14.dp))
                         .padding(12.dp)
                 ) {
-                    Text("Time on Reels Today", color = TextSecond, fontSize = 11.sp)
+                    Text("Time on Reels Today", color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = TimeUtils.formatDurationShort(reelTimeMs),
-                        color = AccentViolet,
+                        color = CurbMeTheme.colors.accentViolet,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -618,14 +611,14 @@ private fun ShortsGuardCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Configure Apps & Limits",
-                        color = AccentPink,
+                        color = CurbMeTheme.colors.accentSky,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
                 Text(
                     text = if (isOverlayEnabled) "Badge Overlay: ON →" else "Badge Overlay: OFF →",
-                    color = TextSecond,
+                    color = CurbMeTheme.colors.textSecondary,
                     fontSize = 11.sp
                 )
             }
@@ -633,18 +626,18 @@ private fun ShortsGuardCard(
             if (isEnabled && !isAccessibilityGranted) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEF4444).copy(alpha = 0.12f)),
+                    colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.accentRed.copy(alpha = 0.12f)),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                        .border(1.dp, CurbMeTheme.colors.accentRed.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Rounded.Warning,
                                 contentDescription = null,
-                                tint = Color(0xFFEF4444),
+                                tint = CurbMeTheme.colors.accentRed,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -655,7 +648,7 @@ private fun ShortsGuardCard(
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = onGrantPermission,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                            colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentRed),
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -675,22 +668,22 @@ private fun DashboardToggleCard(
     isEnabled: Boolean, onToggle: (Boolean) -> Unit
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
-        shape = RoundedCornerShape(22.dp),
-        modifier = Modifier.fillMaxWidth().border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
+        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.glassBg),
+        shape = CurbMeTheme.shapes.cardLarge,
+        modifier = Modifier.fillMaxWidth().border(1.dp, CurbMeTheme.colors.glassBorder, CurbMeTheme.shapes.cardLarge)
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(emoji, fontSize = 24.sp)
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.SemiBold, color = TextPrimary, fontSize = 15.sp)
-                Text(description, color = TextSecond, fontSize = 12.sp)
+                Text(title, fontWeight = FontWeight.SemiBold, color = CurbMeTheme.colors.textPrimary, fontSize = 15.sp)
+                Text(description, color = CurbMeTheme.colors.textSecondary, fontSize = 12.sp)
             }
             Switch(
                 checked = isEnabled, onCheckedChange = onToggle,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White, checkedTrackColor = AccentBlue,
-                    uncheckedThumbColor = Color(0xFF94A3B8), uncheckedTrackColor = TextMuted
+                    checkedThumbColor = Color.White, checkedTrackColor = CurbMeTheme.colors.accentBlue,
+                    uncheckedThumbColor = Color(0xFF94A3B8), uncheckedTrackColor = CurbMeTheme.colors.textMuted
                 )
             )
         }
@@ -702,18 +695,18 @@ private fun DashboardActionCard(
     title: String, description: String, emoji: String, onClick: () -> Unit
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
-        shape = RoundedCornerShape(22.dp),
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
+        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.glassBg),
+        shape = CurbMeTheme.shapes.cardLarge,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).border(1.dp, CurbMeTheme.colors.glassBorder, CurbMeTheme.shapes.cardLarge)
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(emoji, fontSize = 24.sp)
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.SemiBold, color = TextPrimary, fontSize = 15.sp)
-                Text(description, color = TextSecond, fontSize = 12.sp)
+                Text(title, fontWeight = FontWeight.SemiBold, color = CurbMeTheme.colors.textPrimary, fontSize = 15.sp)
+                Text(description, color = CurbMeTheme.colors.textSecondary, fontSize = 12.sp)
             }
-            Text("→", color = TextMuted, fontSize = 18.sp)
+            Text("→", color = CurbMeTheme.colors.textMuted, fontSize = 18.sp)
         }
     }
 }

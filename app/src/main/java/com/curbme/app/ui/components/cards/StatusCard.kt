@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.curbme.app.ui.theme.CurbMeTheme
 
 /**
  * StatusCard remains in Kotlin.
@@ -28,7 +29,7 @@ fun StatusCard(
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1E293B) // Matches your dark theme
+            containerColor = CurbMeTheme.colors.bgElevated
         ),
         shape = MaterialTheme.shapes.medium
     ) {
@@ -42,13 +43,13 @@ fun StatusCard(
             Column {
                 Text(
                     text = label,
-                    color = Color(0xFF94A3B8),
+                    color = CurbMeTheme.colors.textSubtle,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = statusText,
-                    color = Color.White,
+                    color = CurbMeTheme.colors.textPrimary,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -58,7 +59,7 @@ fun StatusCard(
             Surface(
                 modifier = Modifier.size(12.dp),
                 shape = CircleShape,
-                color = if (isActive) Color(0xFF22C55E) else Color(0xFFEF4444)
+                color = if (isActive) CurbMeTheme.colors.accentGreen else CurbMeTheme.colors.accentRed
             ) {}
         }
     }

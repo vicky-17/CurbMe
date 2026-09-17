@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @Composable
 fun AdvancedProtectionCard(
@@ -39,14 +40,14 @@ fun AdvancedProtectionCard(
 
     // Protection tier calculation
     val currentTier = when {
-        isDeviceOwner -> "Level 3: Ultimate Device Owner" to Color(0xFF22C55E)
-        hasShizukuPermission -> "Level 2: Shizuku Enhanced" to Color(0xFF38BDF8)
-        else -> "Level 1: Standard Protection" to Color(0xFF94A3B8)
+        isDeviceOwner -> "Level 3: Ultimate Device Owner" to CurbMeTheme.colors.accentGreen
+        hasShizukuPermission -> "Level 2: Shizuku Enhanced" to CurbMeTheme.colors.accentSky
+        else -> "Level 1: Standard Protection" to CurbMeTheme.colors.textSubtle
     }
 
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.bgDeep),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
@@ -68,7 +69,7 @@ fun AdvancedProtectionCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "ADVANCED SYSTEM HARDENING",
-                        color = Color(0xFF64748B),
+                        color = CurbMeTheme.colors.textSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -102,14 +103,14 @@ fun AdvancedProtectionCard(
             ProtectionSubCard(
                 title = "Shizuku Engine & Auto-Healing",
                 subtitle = shizukuSubtitle,
-                iconColor = if (hasShizukuPermission) Color(0xFF38BDF8) else Color(0xFFF59E0B),
+                iconColor = if (hasShizukuPermission) CurbMeTheme.colors.accentSky else CurbMeTheme.colors.accentAmber,
                 isExpanded = expandedShizuku,
                 onToggleExpand = { expandedShizuku = !expandedShizuku }
             ) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
                     Text(
                         text = "Shizuku allows CurbMe to auto-heal Accessibility Service if killed by OEM battery savers and whitelist CurbMe from Doze mode.",
-                        color = Color(0xFF94A3B8),
+                        color = CurbMeTheme.colors.textSubtle,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
@@ -124,7 +125,7 @@ fun AdvancedProtectionCard(
                             if (!isShizukuAvailable) {
                                 Button(
                                     onClick = onOpenShizukuGuide,
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentSky),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text(if (isShizukuInstalled) "Start Shizuku Service Guide" else "Setup / Install Shizuku Guide", fontSize = 12.sp)
@@ -132,7 +133,7 @@ fun AdvancedProtectionCard(
                             } else {
                                 Button(
                                     onClick = onRequestShizukuPermission,
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentAmber),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text("Grant Shizuku Permission", fontSize = 12.sp)
@@ -142,7 +143,7 @@ fun AdvancedProtectionCard(
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 OutlinedButton(
                                     onClick = onReinforceBackground,
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CurbMeTheme.colors.accentSky),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text("Reinforce Background Whitelist", fontSize = 12.sp)
@@ -164,7 +165,7 @@ fun AdvancedProtectionCard(
                                         )
                                         Text(
                                             text = "Auto-reconnects Accessibility Service if turned off or killed by OEM battery savers.",
-                                            color = Color(0xFF94A3B8),
+                                            color = CurbMeTheme.colors.textSubtle,
                                             fontSize = 11.sp,
                                             lineHeight = 15.sp
                                         )
@@ -175,9 +176,9 @@ fun AdvancedProtectionCard(
                                         onCheckedChange = onToggleAutoHeal,
                                         colors = SwitchDefaults.colors(
                                             checkedThumbColor = Color.White,
-                                            checkedTrackColor = Color(0xFF38BDF8),
-                                            uncheckedThumbColor = Color(0xFF94A3B8),
-                                            uncheckedTrackColor = Color(0xFF334155)
+                                            checkedTrackColor = CurbMeTheme.colors.accentSky,
+                                            uncheckedThumbColor = CurbMeTheme.colors.textSubtle,
+                                            uncheckedTrackColor = CurbMeTheme.colors.textMuted
                                         )
                                     )
                                 }
@@ -193,14 +194,14 @@ fun AdvancedProtectionCard(
             ProtectionSubCard(
                 title = "Secure Settings (WRITE_SECURE_SETTINGS)",
                 subtitle = if (isSecureSettingsGranted) "Granted - Direct System Controls Active" else "Not Granted",
-                iconColor = if (isSecureSettingsGranted) Color(0xFF22C55E) else Color(0xFF94A3B8),
+                iconColor = if (isSecureSettingsGranted) CurbMeTheme.colors.accentGreen else CurbMeTheme.colors.textSubtle,
                 isExpanded = expandedSecureSettings,
                 onToggleExpand = { expandedSecureSettings = !expandedSecureSettings }
             ) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
                     Text(
                         text = "Allows CurbMe to lock Private DNS directly without a VPN and enforce Grayscale Mode during focus hours.",
-                        color = Color(0xFF94A3B8),
+                        color = CurbMeTheme.colors.textSubtle,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
@@ -212,8 +213,8 @@ fun AdvancedProtectionCard(
                             onClick = onGrantSecureSettings,
                             enabled = hasShizukuPermission,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF22C55E),
-                                disabledContainerColor = Color(0xFF334155)
+                                containerColor = CurbMeTheme.colors.accentGreen,
+                                disabledContainerColor = CurbMeTheme.colors.textMuted
                             ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -225,7 +226,7 @@ fun AdvancedProtectionCard(
                     } else {
                         Text(
                             text = "✅ System write settings active",
-                            color = Color(0xFF22C55E),
+                            color = CurbMeTheme.colors.accentGreen,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -239,14 +240,14 @@ fun AdvancedProtectionCard(
             ProtectionSubCard(
                 title = "Unbreakable Device Owner Lock",
                 subtitle = if (isDeviceOwner) "Device Owner Active - Unbreakable" else "Inactive",
-                iconColor = if (isDeviceOwner) Color(0xFFF59E0B) else Color(0xFF94A3B8),
+                iconColor = if (isDeviceOwner) CurbMeTheme.colors.accentAmber else CurbMeTheme.colors.textSubtle,
                 isExpanded = expandedDeviceOwner,
                 onToggleExpand = { expandedDeviceOwner = !expandedDeviceOwner }
             ) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
                     Text(
                         text = "Promotes CurbMe to Device Owner to block uninstall and force-stop entirely at the OS kernel/system level.",
-                        color = Color(0xFF94A3B8),
+                        color = CurbMeTheme.colors.textSubtle,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
@@ -258,8 +259,8 @@ fun AdvancedProtectionCard(
                             onClick = onPromoteDeviceOwner,
                             enabled = hasShizukuPermission,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFF59E0B),
-                                disabledContainerColor = Color(0xFF334155)
+                                containerColor = CurbMeTheme.colors.accentAmber,
+                                disabledContainerColor = CurbMeTheme.colors.textMuted
                             ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -273,7 +274,7 @@ fun AdvancedProtectionCard(
                     } else {
                         Text(
                             text = "✅ Device Owner active - CurbMe cannot be uninstalled",
-                            color = Color(0xFF22C55E),
+                            color = CurbMeTheme.colors.accentGreen,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -295,7 +296,7 @@ private fun ProtectionSubCard(
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF1E293B),
+        color = CurbMeTheme.colors.bgElevated,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -326,7 +327,7 @@ private fun ProtectionSubCard(
                         )
                         Text(
                             text = subtitle,
-                            color = Color(0xFF94A3B8),
+                            color = CurbMeTheme.colors.textSubtle,
                             fontSize = 11.sp
                         )
                     }
@@ -335,7 +336,7 @@ private fun ProtectionSubCard(
                 Icon(
                     imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = Color(0xFF94A3B8)
+                    tint = CurbMeTheme.colors.textSubtle
                 )
             }
 

@@ -1,5 +1,6 @@
 package com.curbme.app.ui.auth
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,10 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.curbme.app.ui.components.common.SectionLabel
-
-private val AccentBlue  = Color(0xFF3B82F6)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond  = Color(0xFF64748B)
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,9 +52,9 @@ fun AccountScreen(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF04040c), // BgDeep
+                        CurbMeTheme.colors.bgDeep,
                         Color(0xFF080B1A), // Deep subtle tint
-                        Color(0xFF04040c)
+                        CurbMeTheme.colors.bgDeep
                     )
                 )
             )
@@ -89,14 +87,14 @@ fun AccountScreen(
                     // Auth UI
                     Text(
                         text = if (isSignUpMode) "Create Account" else "Sign In",
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 8.dp).align(Alignment.Start)
                     )
                     Text(
                         text = if (isSignUpMode) "Sign up to sync your settings." else "Welcome back! Sign in to continue.",
-                        color = TextSecond,
+                        color = CurbMeTheme.colors.textSecondary,
                         fontSize = 14.sp,
                         modifier = Modifier.padding(bottom = 24.dp).align(Alignment.Start)
                     )
@@ -108,10 +106,10 @@ fun AccountScreen(
                         modifier = Modifier.fillMaxWidth(),
                         leadingIcon = { Icon(Icons.Rounded.Email, contentDescription = null) },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentBlue,
+                            focusedBorderColor = CurbMeTheme.colors.accentBlue,
                             unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
+                            focusedTextColor = CurbMeTheme.colors.textPrimary,
+                            unfocusedTextColor = CurbMeTheme.colors.textPrimary
                         )
                     )
 
@@ -125,10 +123,10 @@ fun AccountScreen(
                         leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null) },
                         visualTransformation = PasswordVisualTransformation(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentBlue,
+                            focusedBorderColor = CurbMeTheme.colors.accentBlue,
                             unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
+                            focusedTextColor = CurbMeTheme.colors.textPrimary,
+                            unfocusedTextColor = CurbMeTheme.colors.textPrimary
                         )
                     )
 
@@ -137,7 +135,7 @@ fun AccountScreen(
                             onClick = { viewModel.sendPasswordReset(email) },
                             modifier = Modifier.align(Alignment.End)
                         ) {
-                            Text("Forgot Password?", color = AccentBlue, fontSize = 12.sp)
+                            Text("Forgot Password?", color = CurbMeTheme.colors.accentBlue, fontSize = 12.sp)
                         }
                     }
 
@@ -148,7 +146,7 @@ fun AccountScreen(
                             if (isSignUpMode) viewModel.signUpWithEmail(email, password)
                             else viewModel.signInWithEmail(email, password)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                        colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentBlue),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth().height(56.dp)
                     ) {
@@ -158,9 +156,9 @@ fun AccountScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (isSignUpMode) "Already have an account?" else "Don't have an account?", color = TextSecond, fontSize = 14.sp)
+                        Text(if (isSignUpMode) "Already have an account?" else "Don't have an account?", color = CurbMeTheme.colors.textSecondary, fontSize = 14.sp)
                         TextButton(onClick = { isSignUpMode = !isSignUpMode }) {
-                            Text(if (isSignUpMode) "Login" else "Sign Up", color = AccentBlue, fontWeight = FontWeight.Bold)
+                            Text(if (isSignUpMode) "Login" else "Sign Up", color = CurbMeTheme.colors.accentBlue, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -204,26 +202,26 @@ fun AccountScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Text(user!!.displayName ?: "User", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(user!!.email ?: "", color = TextSecond, fontSize = 14.sp)
+                    Text(user!!.displayName ?: "User", color = CurbMeTheme.colors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(user!!.email ?: "", color = CurbMeTheme.colors.textSecondary, fontSize = 14.sp)
 
                     Spacer(modifier = Modifier.height(32.dp))
 
                     SectionLabel("Manage Devices", modifier = Modifier.padding(horizontal = 4.dp).align(Alignment.Start))
 
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
-                        shape = RoundedCornerShape(22.dp),
+                        colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.glassBg),
+                        shape = CurbMeTheme.shapes.cardLarge,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(22.dp))
+                            .border(1.dp, CurbMeTheme.colors.glassBorder, CurbMeTheme.shapes.cardLarge)
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Devices, contentDescription = null, tint = AccentBlue)
+                            Icon(Icons.Rounded.Devices, contentDescription = null, tint = CurbMeTheme.colors.accentBlue)
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("This Device", fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                                Text("Registered: ${android.os.Build.MODEL}", color = TextSecond, fontSize = 12.sp)
+                                Text("This Device", fontWeight = FontWeight.SemiBold, color = CurbMeTheme.colors.textPrimary)
+                                Text("Registered: ${Build.MODEL}", color = CurbMeTheme.colors.textSecondary, fontSize = 12.sp)
                             }
                         }
                     }

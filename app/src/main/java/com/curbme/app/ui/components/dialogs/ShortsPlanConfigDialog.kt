@@ -24,11 +24,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.curbme.app.data.models.ReelPlanConfig
 import com.curbme.app.data.models.ShortsBlockMode
 
-private val BgDeep = Color(0xFF04040C)
-private val AccentPink = Color(0xFFEC4899)
-private val AccentViolet = Color(0xFF8B5CF6)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond = Color(0xFF94A3B8)
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @Composable
 fun ShortsPlanConfigDialog(
@@ -55,7 +51,7 @@ fun ShortsPlanConfigDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = BgDeep),
+            colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.bgDeep),
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
@@ -76,7 +72,7 @@ fun ShortsPlanConfigDialog(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(AccentPink.copy(alpha = 0.15f)),
+                            .background(CurbMeTheme.colors.accentSky.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text("⚙️", fontSize = 20.sp)
@@ -85,14 +81,14 @@ fun ShortsPlanConfigDialog(
                     Column {
                         Text(
                             text = "SHORTS PROTECTION PLAN",
-                            color = AccentPink,
+                            color = CurbMeTheme.colors.accentSky,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
                         Text(
                             text = "Configure Protection Mode & Limits",
-                            color = TextSecond,
+                            color = CurbMeTheme.colors.textSecondary,
                             fontSize = 12.sp
                         )
                     }
@@ -110,22 +106,22 @@ fun ShortsPlanConfigDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Show Floating Reel Badge", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("Display live scroll count overlay on video apps", color = TextSecond, fontSize = 11.sp)
+                        Text("Show Floating Reel Badge", color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Display live scroll count overlay on video apps", color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
                     }
                     Switch(
                         checked = isDisplayBadge,
                         onCheckedChange = { isDisplayBadge = it },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = AccentPink
+                            checkedTrackColor = CurbMeTheme.colors.accentSky
                         )
                     )
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                Text("Protection Mode", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("Protection Mode", color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Mode Selector Chips
@@ -134,8 +130,8 @@ fun ShortsPlanConfigDialog(
                         val isSelected = mode == selectedMode
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) AccentPink.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.04f),
-                            border = if (isSelected) BorderStroke(1.dp, AccentPink) else null,
+                            color = if (isSelected) CurbMeTheme.colors.accentSky.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.04f),
+                            border = if (isSelected) BorderStroke(1.dp, CurbMeTheme.colors.accentSky) else null,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { selectedMode = mode }
@@ -152,7 +148,7 @@ fun ShortsPlanConfigDialog(
                                         ShortsBlockMode.REEL_COUNT_LIMIT -> "🎬 Reel Scroll Count Limit"
                                         ShortsBlockMode.SCHEDULED_WINDOWS -> "⏰ Scheduled Allowed Window"
                                     },
-                                    color = if (isSelected) AccentPink else TextPrimary,
+                                    color = if (isSelected) CurbMeTheme.colors.accentSky else CurbMeTheme.colors.textPrimary,
                                     fontSize = 13.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
@@ -165,32 +161,32 @@ fun ShortsPlanConfigDialog(
 
                 // Mode 3: Daily Time Limit Slider
                 if (selectedMode == ShortsBlockMode.DAILY_TIME_LIMIT) {
-                    Text("Daily Short Video Limit: ${timeLimitMins.toInt()} mins", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Daily Short Video Limit: ${timeLimitMins.toInt()} mins", color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Slider(
                         value = timeLimitMins,
                         onValueChange = { timeLimitMins = it },
                         valueRange = 5f..120f,
                         steps = 22,
-                        colors = SliderDefaults.colors(thumbColor = AccentPink, activeTrackColor = AccentPink)
+                        colors = SliderDefaults.colors(thumbColor = CurbMeTheme.colors.accentSky, activeTrackColor = CurbMeTheme.colors.accentSky)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 // Mode 4: Reel Count Cap Slider
                 if (selectedMode == ShortsBlockMode.REEL_COUNT_LIMIT) {
-                    Text("Daily Reel Scroll Cap: ${reelCapCount.toInt()} reels", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Daily Reel Scroll Cap: ${reelCapCount.toInt()} reels", color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Slider(
                         value = reelCapCount,
                         onValueChange = { reelCapCount = it },
                         valueRange = 5f..100f,
                         steps = 18,
-                        colors = SliderDefaults.colors(thumbColor = AccentViolet, activeTrackColor = AccentViolet)
+                        colors = SliderDefaults.colors(thumbColor = CurbMeTheme.colors.accentViolet, activeTrackColor = CurbMeTheme.colors.accentViolet)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 // Target Apps Selector
-                Text("Target Video Apps", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("Target Video Apps", color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 allApps.forEach { (pkg, label) ->
@@ -209,10 +205,10 @@ fun ShortsPlanConfigDialog(
                             onCheckedChange = { checked ->
                                 selectedApps = if (checked) selectedApps + pkg else selectedApps - pkg
                             },
-                            colors = CheckboxDefaults.colors(checkedColor = AccentPink)
+                            colors = CheckboxDefaults.colors(checkedColor = CurbMeTheme.colors.accentSky)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(label, color = TextPrimary, fontSize = 13.sp)
+                        Text(label, color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp)
                     }
                 }
 
@@ -224,7 +220,7 @@ fun ShortsPlanConfigDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = TextSecond)
+                        Text("Cancel", color = CurbMeTheme.colors.textSecondary)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -238,7 +234,7 @@ fun ShortsPlanConfigDialog(
                             )
                             onSave(newConfig)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentPink),
+                        colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentSky),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Save Plan", color = Color.White, fontWeight = FontWeight.Bold)

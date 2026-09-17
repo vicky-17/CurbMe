@@ -68,13 +68,14 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ── Color palette ─────────────────────────────────────────────────────────────
-private val ScreenBg   = Color(0xFF080E1A)
-private val CardBg     = Color(0xFF111827)
-private val AccentCyan = Color(0xFF06B6D4)
-private val TextPrimary = Color(0xFFF1F5F9)
-private val TextSecond  = Color(0xFF64748B)
-private val AccentRed   = Color(0xFFEF4444)
+import com.curbme.app.ui.theme.CurbMeTheme
+
+private val ScreenBg: Color @Composable get() = CurbMeTheme.colors.bgDeep
+private val CardBg: Color @Composable get() = CurbMeTheme.colors.bgCard
+private val AccentCyan: Color @Composable get() = CurbMeTheme.colors.accentCyan
+private val TextPrimary: Color @Composable get() = CurbMeTheme.colors.textPrimary
+private val TextSecond: Color @Composable get() = CurbMeTheme.colors.textSecondary
+private val AccentRed: Color @Composable get() = CurbMeTheme.colors.accentRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,7 +119,7 @@ fun LocksScreen(prefs: PrefsManager) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ScreenBg)
+            .background(CurbMeTheme.colors.bgDeep)
             .padding(bottom = 24.dp),
     ) {
         // Removed LocksHeader() to use global Digital Monk header
@@ -140,10 +141,10 @@ fun LocksScreen(prefs: PrefsManager) {
                 if (groupedRules.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Rounded.Lock, contentDescription = null, tint = TextSecond, modifier = Modifier.size(48.dp))
+                            Icon(Icons.Rounded.Lock, contentDescription = null, tint = CurbMeTheme.colors.textSecondary, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text("No active app plans", color = TextSecond)
-                            Text("Click + to add your first plan", color = TextSecond.copy(alpha = 0.6f), fontSize = 12.sp)
+                            Text("No active app plans", color = CurbMeTheme.colors.textSecondary)
+                            Text("Click + to add your first plan", color = CurbMeTheme.colors.textSecondary.copy(alpha = 0.6f), fontSize = 12.sp)
                         }
                     }
                 } else {
@@ -170,7 +171,7 @@ fun LocksScreen(prefs: PrefsManager) {
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(24.dp),
-                    containerColor = AccentCyan,
+                    containerColor = CurbMeTheme.colors.accentCyan,
                     contentColor = Color.White
                 ) {
                     Icon(Icons.Rounded.Add, contentDescription = "Add Plan")
@@ -235,7 +236,7 @@ fun LocksScreen(prefs: PrefsManager) {
                     item {
                         Text(
                             text = "Blocked Websites (${websites.size})",
-                            color = TextPrimary,
+                            color = CurbMeTheme.colors.textPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
@@ -250,7 +251,7 @@ fun LocksScreen(prefs: PrefsManager) {
                                     .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("No blocked websites yet", color = TextSecond, fontSize = 14.sp)
+                                Text("No blocked websites yet", color = CurbMeTheme.colors.textSecondary, fontSize = 14.sp)
                             }
                         }
                     } else {
@@ -289,7 +290,7 @@ fun LocksScreen(prefs: PrefsManager) {
                             Spacer(Modifier.height(16.dp))
                             Text(
                                 text = "Suggested",
-                                color = TextPrimary,
+                                color = CurbMeTheme.colors.textPrimary,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
@@ -324,13 +325,13 @@ fun LocksScreen(prefs: PrefsManager) {
                             Icon(
                                 imageVector = Icons.Rounded.History,
                                 contentDescription = null,
-                                tint = AccentCyan,
+                                tint = CurbMeTheme.colors.accentCyan,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "Web History (${visitedWebsites.size})",
-                                color = TextPrimary,
+                                color = CurbMeTheme.colors.textPrimary,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -346,7 +347,7 @@ fun LocksScreen(prefs: PrefsManager) {
                                     .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("No web history recorded today", color = TextSecond, fontSize = 14.sp)
+                                Text("No web history recorded today", color = CurbMeTheme.colors.textSecondary, fontSize = 14.sp)
                             }
                         }
                     } else {
@@ -366,7 +367,7 @@ fun LocksScreen(prefs: PrefsManager) {
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(24.dp),
-                    containerColor = AccentCyan,
+                    containerColor = CurbMeTheme.colors.accentCyan,
                     contentColor = Color.White
                 ) {
                     Icon(Icons.Rounded.Add, contentDescription = "Add Website")
@@ -378,8 +379,8 @@ fun LocksScreen(prefs: PrefsManager) {
             ModalBottomSheet(
                 onDismissRequest = { showWizard = false },
                 sheetState = sheetState,
-                containerColor = ScreenBg,
-                dragHandle = { BottomSheetDefaults.DragHandle(color = TextSecond.copy(alpha = 0.5f)) }
+                containerColor = CurbMeTheme.colors.bgDeep,
+                dragHandle = { BottomSheetDefaults.DragHandle(color = CurbMeTheme.colors.textSecondary.copy(alpha = 0.5f)) }
             ) {
                 AppBlockWizard(
                     state = wizardState,
@@ -397,8 +398,8 @@ fun LocksScreen(prefs: PrefsManager) {
             ModalBottomSheet(
                 onDismissRequest = { showAddWebsiteDialog = false },
                 sheetState = addWebsiteSheetState,
-                containerColor = ScreenBg,
-                dragHandle = { BottomSheetDefaults.DragHandle(color = TextSecond.copy(alpha = 0.5f)) }
+                containerColor = CurbMeTheme.colors.bgDeep,
+                dragHandle = { BottomSheetDefaults.DragHandle(color = CurbMeTheme.colors.textSecondary.copy(alpha = 0.5f)) }
             ) {
                 AddWebsiteDialog(
                     viewModel = viewModel,
@@ -456,7 +457,7 @@ private fun ActivePlanCard(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(AccentCyan.copy(alpha = 0.1f), CircleShape),
+                        .background(CurbMeTheme.colors.accentCyan.copy(alpha = 0.1f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -467,7 +468,7 @@ private fun ActivePlanCard(
                             else -> Icons.Rounded.Coffee
                         },
                         contentDescription = null,
-                        tint = AccentCyan,
+                        tint = CurbMeTheme.colors.accentCyan,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -475,23 +476,23 @@ private fun ActivePlanCard(
                 Spacer(Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(planName, color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                    Text(planName, color = CurbMeTheme.colors.textPrimary, fontWeight = FontWeight.Black, fontSize = 16.sp)
                     val strategyLabel = firstRule.planType.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
-                    Text(strategyLabel, color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(strategyLabel, color = CurbMeTheme.colors.accentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
                 IconButton(
                     onClick = onDelete,
                     enabled = !isEnforced,
                     modifier = Modifier.background(
-                        if (isEnforced) TextSecond.copy(alpha = 0.1f) else AccentRed.copy(alpha = 0.1f),
+                        if (isEnforced) CurbMeTheme.colors.textSecondary.copy(alpha = 0.1f) else CurbMeTheme.colors.accentRed.copy(alpha = 0.1f),
                         CircleShape
                     ).size(32.dp)
                 ) {
                     Icon(
                         imageVector = if (isEnforced) Icons.Rounded.Lock else Icons.Rounded.Delete,
                         contentDescription = if (isEnforced) "Delete" else "Enforced",
-                        tint = if (isEnforced) TextSecond else AccentRed,
+                        tint = if (isEnforced) CurbMeTheme.colors.textSecondary else CurbMeTheme.colors.accentRed,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -512,8 +513,8 @@ private fun ActivePlanCard(
                             modifier = Modifier
                                 .offset(x = (index * 20).dp)
                                 .size(32.dp)
-                                .background(CardBg, CircleShape)
-                                .border(2.dp, CardBg, CircleShape)
+                                .background(CurbMeTheme.colors.bgCard, CircleShape)
+                                .border(2.dp, CurbMeTheme.colors.bgCard, CircleShape)
                                 .padding(2.dp)
                                 .clip(CircleShape)
                                 .background(Color.White.copy(alpha = 0.05f))
@@ -544,8 +545,8 @@ private fun ActivePlanCard(
                             modifier = Modifier
                                 .offset(x = (displayCount * 20).dp)
                                 .size(32.dp)
-                                .background(AccentCyan, CircleShape)
-                                .border(2.dp, CardBg, CircleShape),
+                                .background(CurbMeTheme.colors.accentCyan, CircleShape)
+                                .border(2.dp, CurbMeTheme.colors.bgCard, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -560,7 +561,7 @@ private fun ActivePlanCard(
 
                 Text(
                     text = if (isExpanded) "Hide details" else "View ${rules.size} apps",
-                    color = AccentCyan,
+                    color = CurbMeTheme.colors.accentCyan,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(end = 4.dp)
@@ -606,9 +607,9 @@ private fun ActivePlanCard(
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(Modifier.width(12.dp))
-                            Text(rule.appName, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text(rule.appName, color = CurbMeTheme.colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
-                            Text(rule.packageName.split(".").lastOrNull() ?: "", color = TextSecond, fontSize = 10.sp)
+                            Text(rule.packageName.split(".").lastOrNull() ?: "", color = CurbMeTheme.colors.textSecondary, fontSize = 10.sp)
                         }
                     }
 
@@ -619,22 +620,22 @@ private fun ActivePlanCard(
                             .fillMaxWidth()
                             .padding(top = 8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AccentCyan
+                            contentColor = CurbMeTheme.colors.accentCyan
                         ),
-                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f)),
+                        border = BorderStroke(1.dp, CurbMeTheme.colors.accentCyan.copy(alpha = 0.5f)),
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Rounded.Add,
                                 contentDescription = null,
-                                tint = AccentCyan,
+                                tint = CurbMeTheme.colors.accentCyan,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "Add More Apps to Plan",
-                                color = AccentCyan,
+                                color = CurbMeTheme.colors.accentCyan,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             )
@@ -649,11 +650,11 @@ private fun ActivePlanCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(ScreenBg.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .background(CurbMeTheme.colors.bgDeep.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.History, null, tint = TextSecond, modifier = Modifier.size(14.dp))
+                Icon(Icons.Rounded.History, null, tint = CurbMeTheme.colors.textSecondary, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(8.dp))
                 val timingText = when(firstRule.timingMode) {
                     "MULTI_DAY" -> {
@@ -665,7 +666,7 @@ private fun ActivePlanCard(
                     "WEEKLY" -> "Recurring weekly"
                     else -> "Active on-demand"
                 }
-                Text(timingText, color = TextSecond, fontSize = 11.sp)
+                Text(timingText, color = CurbMeTheme.colors.textSecondary, fontSize = 11.sp)
             }
         }
     }
@@ -715,10 +716,10 @@ fun AppBlockWizard(
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = "Discard",
-                        tint = AccentRed,
+                        tint = CurbMeTheme.colors.accentRed,
                         modifier = Modifier.size(22.dp)
                     )
-                    Text("Discard", color = AccentRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("Discard", color = CurbMeTheme.colors.accentRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
 
                 // Center: Title & Progress
@@ -733,13 +734,13 @@ fun AppBlockWizard(
                     }
                     Text(
                         text = stepTitle,
-                        color = TextPrimary,
+                        color = CurbMeTheme.colors.textPrimary,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 18.sp
                     )
                     Text(
                         text = "Step ${state.currentStep} of 5",
-                        color = TextSecond,
+                        color = CurbMeTheme.colors.textSecondary,
                         fontSize = 11.sp
                     )
                 }
@@ -754,10 +755,10 @@ fun AppBlockWizard(
                     Icon(
                         imageVector = Icons.Rounded.Refresh,
                         contentDescription = "Clear",
-                        tint = AccentCyan,
+                        tint = CurbMeTheme.colors.accentCyan,
                         modifier = Modifier.size(22.dp)
                     )
-                    Text("Clear", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("Clear", color = CurbMeTheme.colors.accentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -770,8 +771,8 @@ fun AppBlockWizard(
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(CircleShape),
-                color = AccentCyan,
-                trackColor = CardBg,
+                color = CurbMeTheme.colors.accentCyan,
+                trackColor = CurbMeTheme.colors.bgCard,
             )
         }
 
@@ -801,7 +802,7 @@ fun AppBlockWizard(
         // Bottom Navigation
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = CardBg,
+            color = CurbMeTheme.colors.bgCard,
             tonalElevation = 8.dp
         ) {
             Row(
@@ -819,15 +820,15 @@ fun AppBlockWizard(
                         imageVector = if (state.currentStep > 1) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Close,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
-                        tint = TextSecond
+                        tint = CurbMeTheme.colors.textSecondary
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(if (state.currentStep > 1) "Back" else "Cancel", color = TextSecond, fontWeight = FontWeight.Medium)
+                    Text(if (state.currentStep > 1) "Back" else "Cancel", color = CurbMeTheme.colors.textSecondary, fontWeight = FontWeight.Medium)
                 }
 
                 Button(
                     onClick = { if (state.currentStep < 5) viewModel.nextStep() else { viewModel.saveWizardPlan(); onDismiss() } },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                    colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentCyan),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.height(48.dp).padding(horizontal = 4.dp),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)

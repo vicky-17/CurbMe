@@ -23,6 +23,7 @@ import com.curbme.app.data.local.prefs.DataStoreManager
 import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.ui.components.cards.ToggleCard
 import com.curbme.app.ui.components.common.SectionLabel
+import com.curbme.app.ui.theme.CurbMeTheme
 import com.curbme.app.ui.components.dialogs.PinDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -68,14 +69,14 @@ fun ContentFilterScreen() {
         topBar = {
             TopAppBar(
                 title = { Text("Content Filtering", color = Color.White) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CurbMeTheme.colors.bgDeep)
             )
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0F172A))
+                .background(CurbMeTheme.colors.bgDeep)
                 .padding(padding)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
@@ -151,7 +152,7 @@ fun ContentFilterScreen() {
 
             // Tor Status Card
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.bgElevated),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -216,15 +217,15 @@ fun ContentFilterScreen() {
 
             // Helpful tip for the parent
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.bgElevated),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(modifier = Modifier.padding(16.dp)) {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFF3B82F6))
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = CurbMeTheme.colors.accentBlue)
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = "These filters apply system-wide using a local VPN tunnel.",
-                        color = Color(0xFF94A3B8),
+                        color = CurbMeTheme.colors.textSubtle,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
