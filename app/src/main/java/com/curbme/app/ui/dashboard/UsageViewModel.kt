@@ -122,71 +122,6 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
         loadWeekData()
     }
 
-    private suspend fun computeWeek(offset: Int): WeekCacheEntry {
-        val weekData = mutableListOf<DayUsageData>()
-        val dailyStatsList = mutableListOf<List<AppUsageInfo>>()
-        val calendar = Calendar.getInstance()
-        
-        // Robust Monday calculation
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        while (calendar.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
-            calendar.add(Calendar.DAY_OF_YEAR, -1)
-        }
-        
-        calendar.add(Calendar.WEEK_OF_YEAR, offset)
-        
-        val labels = listOf("M", "T", "W", "T", "F", "S", "S")
-        val allWeekAppMap = mutableMapOf<String, AppUsageInfo>()
-        
-        for (i in 0..6) {
-            val date = calendar.clone() as Calendar
-            val stats = usageStatsHelper.getUsageStatsForDay(date)
-            dailyStatsList.add(stats)
-            val totalMs = stats.sumOf { it.usageTimeMs }
-            weekData.add(DayUsageData(labels[i], totalMs / 3600000f, date))
-
-            for (app in stats) {
-                val existing = allWeekAppMap[app.packageName]
-                if (existing == null) {
-                    allWeekAppMap[app.packageName] = app.copy()
-                } else {
-                    allWeekAppMap[app.packageName] = existing.copy(
-                        usageTimeMs = existing.usageTimeMs + app.usageTimeMs,
-                        launchCount = existing.launchCount + app.launchCount
-                    )
-                }
-            }
-
-            calendar.add(Calendar.DAY_OF_YEAR, 1)
-        }
-        
-        var rangeLabel = ""
-        val firstDay = weekData.firstOrNull()?.date
-        val lastDay = weekData.lastOrNull()?.date
-        if (firstDay != null && lastDay != null) {
-            val sdf = SimpleDateFormat("d MMM", Locale.getDefault())
-            val yearFormat = SimpleDateFormat("yyyy", Locale.getDefault())
-            val startStr = sdf.format(firstDay.time)
-            val endStr = sdf.format(lastDay.time)
-            val yearStr = yearFormat.format(lastDay.time)
-            rangeLabel = "$startStr – $endStr, $yearStr"
-        }
-
-        val sortedWeeklyStats = allWeekAppMap.values
-            .filter { it.usageTimeMs > 0 }
-            .sortedByDescending { it.usageTimeMs }
-
-        return WeekCacheEntry(
-            weeklyData = weekData,
-            dailyStats = dailyStatsList,
-            sortedWeeklyStats = sortedWeeklyStats,
-            dateRangeLabel = rangeLabel
-        )
-    }
-
     private fun loadWeekData() {
         val currentOffset = _weekOffset.value
         val cached = weekCache[currentOffset]
@@ -198,7 +133,68 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _isLoading.value = true
             try {
-                val entry = computeWeek(currentOffset)
+                val weekData = mutableListOf<DayUsageData>()
+                val dailyStatsList = mutableListOf<List<AppUsageInfo>>()
+                val calendar = Calendar.getInstance()
+                
+                // Robust Monday calculation
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                while (calendar.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
+                    calendar.add(Calendar.DAY_OF_YEAR, -1)
+                }
+                
+                calendar.add(Calendar.WEEK_OF_YEAR, currentOffset)
+                
+                val labels = listOf("M", "T", "W", "T", "F", "S", "S")
+                val allWeekAppMap = mutableMapOf<String, AppUsageInfo>()
+                
+                for (i in 0..6) {
+                    val date = calendar.clone() as Calendar
+                    val stats = usageStatsHelper.getUsageStatsForDay(date)
+                    dailyStatsList.add(stats)
+                    val totalMs = stats.sumOf { it.usageTimeMs }
+                    weekData.add(DayUsageData(labels[i], totalMs / 3600000f, date))
+
+                    for (app in stats) {
+                        val existing = allWeekAppMap[app.packageName]
+                        if (existing == null) {
+                            allWeekAppMap[app.packageName] = app.copy()
+                        } else {
+                            allWeekAppMap[app.packageName] = existing.copy(
+                                usageTimeMs = existing.usageTimeMs + app.usageTimeMs,
+                                launchCount = existing.launchCount + app.launchCount
+                            )
+                        }
+                    }
+
+                    calendar.add(Calendar.DAY_OF_YEAR, 1)
+                }
+                
+                var rangeLabel = ""
+                val firstDay = weekData.firstOrNull()?.date
+                val lastDay = weekData.lastOrNull()?.date
+                if (firstDay != null && lastDay != null) {
+                    val sdf = SimpleDateFormat("d MMM", Locale.getDefault())
+                    val yearFormat = SimpleDateFormat("yyyy", Locale.getDefault())
+                    val startStr = sdf.format(firstDay.time)
+                    val endStr = sdf.format(lastDay.time)
+                    val yearStr = yearFormat.format(lastDay.time)
+                    rangeLabel = "$startStr – $endStr, $yearStr"
+                }
+
+                val sortedWeeklyStats = allWeekAppMap.values
+                    .filter { it.usageTimeMs > 0 }
+                    .sortedByDescending { it.usageTimeMs }
+
+                val entry = WeekCacheEntry(
+                    weeklyData = weekData,
+                    dailyStats = dailyStatsList,
+                    sortedWeeklyStats = sortedWeeklyStats,
+                    dateRangeLabel = rangeLabel
+                )
                 weekCache[currentOffset] = entry
 
                 if (_weekOffset.value == currentOffset) {
@@ -232,8 +228,67 @@ class UsageViewModel(application: Application) : AndroidViewModel(application) {
     private fun prefetchWeek(offset: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val entry = computeWeek(offset)
-                weekCache[offset] = entry
+                val weekData = mutableListOf<DayUsageData>()
+                val dailyStatsList = mutableListOf<List<AppUsageInfo>>()
+                val calendar = Calendar.getInstance()
+                
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                while (calendar.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
+                    calendar.add(Calendar.DAY_OF_YEAR, -1)
+                }
+                
+                calendar.add(Calendar.WEEK_OF_YEAR, offset)
+                
+                val labels = listOf("M", "T", "W", "T", "F", "S", "S")
+                val allWeekAppMap = mutableMapOf<String, AppUsageInfo>()
+                
+                for (i in 0..6) {
+                    val date = calendar.clone() as Calendar
+                    val stats = usageStatsHelper.getUsageStatsForDay(date)
+                    dailyStatsList.add(stats)
+                    val totalMs = stats.sumOf { it.usageTimeMs }
+                    weekData.add(DayUsageData(labels[i], totalMs / 3600000f, date))
+
+                    for (app in stats) {
+                        val existing = allWeekAppMap[app.packageName]
+                        if (existing == null) {
+                            allWeekAppMap[app.packageName] = app.copy()
+                        } else {
+                            allWeekAppMap[app.packageName] = existing.copy(
+                                usageTimeMs = existing.usageTimeMs + app.usageTimeMs,
+                                launchCount = existing.launchCount + app.launchCount
+                            )
+                        }
+                    }
+
+                    calendar.add(Calendar.DAY_OF_YEAR, 1)
+                }
+
+                var rangeLabel = ""
+                val firstDay = weekData.firstOrNull()?.date
+                val lastDay = weekData.lastOrNull()?.date
+                if (firstDay != null && lastDay != null) {
+                    val sdf = SimpleDateFormat("d MMM", Locale.getDefault())
+                    val yearFormat = SimpleDateFormat("yyyy", Locale.getDefault())
+                    val startStr = sdf.format(firstDay.time)
+                    val endStr = sdf.format(lastDay.time)
+                    val yearStr = yearFormat.format(lastDay.time)
+                    rangeLabel = "$startStr – $endStr, $yearStr"
+                }
+
+                val sortedWeeklyStats = allWeekAppMap.values
+                    .filter { it.usageTimeMs > 0 }
+                    .sortedByDescending { it.usageTimeMs }
+
+                weekCache[offset] = WeekCacheEntry(
+                    weeklyData = weekData,
+                    dailyStats = dailyStatsList,
+                    sortedWeeklyStats = sortedWeeklyStats,
+                    dateRangeLabel = rangeLabel
+                )
             } catch (_: Exception) {}
         }
     }
