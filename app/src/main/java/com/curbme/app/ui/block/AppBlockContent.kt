@@ -43,7 +43,7 @@ fun AppBlockContent(
     onGoHome: () -> Unit,
     onRegain: (Int) -> Unit
 ) {
-    if (planType == "FULL_BLOCK") {
+    if (planType == "STAY_FOCUSED") {
         FullBlockUI(appName, reason, onGoHome)
     } else {
         BottomSheetBlockUI(appName, reason, onGoHome, onRegain)

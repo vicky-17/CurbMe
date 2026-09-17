@@ -40,7 +40,7 @@ import kotlin.concurrent.Volatile
         AppGroupEntity::class,
         AdultDomainEntity::class
     ],
-    version = 11,
+    version = 10,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
