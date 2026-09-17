@@ -2,7 +2,6 @@ package com.curbme.app.ui.components.dialogs
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,10 +15,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.curbme.app.data.local.prefs.PrefsManager
+import com.curbme.app.ui.theme.CurbMeTheme
 
 @Composable
 fun PinGateDialog(
-    prefs: PrefsManager?, // Nullable for Preview support
+    prefs: PrefsManager?,
     title: String,
     message: String,
     onSuccess: () -> Unit,
@@ -30,27 +30,27 @@ fun PinGateDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            shape = CurbMeTheme.shapes.cardLarge,
+            colors = CardDefaults.cardColors(containerColor = CurbMeTheme.colors.bgElevated),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
-                Text("🔒 $title", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("🔒 $title", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = CurbMeTheme.colors.textPrimary)
                 Spacer(Modifier.height(8.dp))
-                Text(message, fontSize = 13.sp, color = Color(0xFF94A3B8), lineHeight = 18.sp)
+                Text(message, fontSize = 13.sp, color = CurbMeTheme.colors.textSubtle, lineHeight = 18.sp)
                 Spacer(Modifier.height(20.dp))
 
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { if (it.length <= 6) { pin = it; error = false } },
-                    label = { Text("Parent PIN", color = Color(0xFF64748B)) },
+                    label = { Text("Parent PIN", color = CurbMeTheme.colors.textSecondary) },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     singleLine = true,
                     isError = error,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF3B82F6),
-                        unfocusedBorderColor = Color(0xFF334155),
+                        focusedBorderColor = CurbMeTheme.colors.accentBlue,
+                        unfocusedBorderColor = CurbMeTheme.colors.textMuted,
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
@@ -58,7 +58,7 @@ fun PinGateDialog(
                 )
                 if (error) {
                     Spacer(Modifier.height(4.dp))
-                    Text("Incorrect PIN", fontSize = 12.sp, color = Color(0xFFEF4444))
+                    Text("Incorrect PIN", fontSize = 12.sp, color = CurbMeTheme.colors.accentRed)
                 }
 
                 Spacer(Modifier.height(20.dp))
@@ -68,28 +68,26 @@ fun PinGateDialog(
                         else { error = true; pin = "" }
                     },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
-                    shape = RoundedCornerShape(12.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentBlue),
+                    shape = CurbMeTheme.shapes.small
                 ) {
                     Text("Confirm", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                    Text("Cancel", color = Color(0xFF64748B), fontSize = 14.sp)
+                    Text("Cancel", color = CurbMeTheme.colors.textSecondary, fontSize = 14.sp)
                 }
             }
         }
     }
 }
 
-
-// Not a correct way for preview
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 fun PinGateDialogPreview() {
-    MaterialTheme {
-        Scaffold{
+    CurbMeTheme {
+        Scaffold {
             PinGateDialog(
                 prefs = null,
                 title = "Disable VPN Protection",
@@ -98,6 +96,5 @@ fun PinGateDialogPreview() {
                 onDismiss = {}
             )
         }
-
     }
 }

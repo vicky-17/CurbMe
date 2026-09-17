@@ -26,10 +26,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.curbme.app.data.local.prefs.PrefsManager
+import com.curbme.app.ui.theme.CurbMeTheme
 
 /**
- * PinDialog remains in Kotlin to support Compose UI.
- * It uses the Java PrefsManager for centralized security validation.
+ * PinDialog uses native AlertDialog with CurbMeTheme tokens for proper text field focus handling.
  */
 @Composable
 fun PinDialog(
@@ -47,7 +47,7 @@ fun PinDialog(
                 text = "Security Verification",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = CurbMeTheme.colors.textPrimary
             )
         },
         text = {
@@ -55,7 +55,7 @@ fun PinDialog(
                 Text(
                     text = "Enter Parent PIN to proceed",
                     fontSize = 14.sp,
-                    color = Color(0xFF94A3B8)
+                    color = CurbMeTheme.colors.textSubtle
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
@@ -93,16 +93,16 @@ fun PinDialog(
                         enteredPin = ""
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                colors = ButtonDefaults.buttonColors(containerColor = CurbMeTheme.colors.accentBlue)
             ) {
                 Text("Verify")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFF94A3B8))
+                Text("Cancel", color = CurbMeTheme.colors.textSubtle)
             }
         },
-        containerColor = Color(0xFF1E293B)
+        containerColor = CurbMeTheme.colors.bgElevated
     )
 }
