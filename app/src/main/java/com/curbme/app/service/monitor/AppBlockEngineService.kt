@@ -1,5 +1,6 @@
 package com.curbme.app.service.monitor
 
+import android.accessibilityservice.AccessibilityService
 import android.app.*
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
@@ -15,6 +16,7 @@ import com.curbme.app.data.local.prefs.DataStoreManager
 import com.curbme.app.data.local.prefs.Settings
 import com.curbme.app.core.utils.PermissionHelper
 import android.widget.Toast
+import com.curbme.app.service.accessibility.GuardianAccessibilityService
 import com.curbme.app.ui.block.AppBlockOverlayManager
 import java.util.*
 
@@ -288,10 +290,18 @@ class AppBlockEngineService : Service() {
     }
 
     private fun returnToHome() {
-        val intent = Intent(Intent.ACTION_MAIN)
-        intent.addCategory(Intent.CATEGORY_HOME)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        startActivity(intent)
+        serviceScope.launch {
+            GuardianAccessibilityService.instance?.let { service ->
+                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                delay(150L)
+                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                delay(150L)
+            }
+            val intent = Intent(Intent.ACTION_MAIN)
+            intent.addCategory(Intent.CATEGORY_HOME)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
