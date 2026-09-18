@@ -225,6 +225,14 @@ class PrefsManager(context: Context) {
             }
         }
 
+    var isDisablePopupWindowEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DISABLE_POPUP_WINDOW, false)
+        set(value) {
+            prefs.edit {
+                putBoolean(KEY_DISABLE_POPUP_WINDOW, value)
+            }
+        }
+
 
     var lockDurationMs: Long
         get() = prefs.getLong(KEY_LOCK_DURATION_MS, 0L)
@@ -408,6 +416,7 @@ class PrefsManager(context: Context) {
         private const val KEY_LOCK_NTP_OFFSET = "lock_ntp_offset"
         private const val KEY_LAST_KNOWN_DEVICE_TIME = "last_known_device_time"
         private const val KEY_ANTI_UNINSTALL_ENABLED = "anti_uninstall_enabled"
+        private const val KEY_DISABLE_POPUP_WINDOW = "disable_popup_window"
 
         private const val KEY_PERMISSION_BLOCK_ENABLED = "permission_block_enabled"
 

@@ -230,21 +230,14 @@ class MainActivity : BaseActivity() {
             label = "scrim"
         )
 
-        val entryProvider = remember(prefs, refreshKey, backStack, usageViewModel, context) {
-            createAppEntryProvider(
-                prefs = prefs,
-                refreshKey = refreshKey,
-                onRefresh = { refreshKey = System.currentTimeMillis() },
-                backStack = backStack,
-                usageViewModel = usageViewModel,
-                activityContext = context
-            )
-        }
-
         Box(modifier = Modifier.fillMaxSize().background(CurbMeTheme.colors.bgDeep)) {
             Scaffold(
                 topBar = {
-                    if (isTabDestination) {
+                    AnimatedVisibility(
+                        visible = isTabDestination,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(200))
+                    ) {
                         DashboardHeader(
                             onBack = { sidebarOpen = true },
                             onAccountClick = { backStack.add(AccountKey) }
@@ -252,7 +245,11 @@ class MainActivity : BaseActivity() {
                     }
                 },
                 bottomBar = {
-                    if (isTabDestination) {
+                    AnimatedVisibility(
+                        visible = isTabDestination,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(200))
+                    ) {
                         GlassNavigationBar(
                             currentTab = currentKey,
                             onTabSelected = { targetTab ->
@@ -270,10 +267,20 @@ class MainActivity : BaseActivity() {
                 },
                 containerColor = CurbMeTheme.colors.bgDeep
             ) { innerPadding ->
+                val entryProvider = remember(prefs, refreshKey, backStack, usageViewModel, context, innerPadding) {
+                    createAppEntryProvider(
+                        prefs = prefs,
+                        refreshKey = refreshKey,
+                        onRefresh = { refreshKey = System.currentTimeMillis() },
+                        backStack = backStack,
+                        usageViewModel = usageViewModel,
+                        activityContext = context,
+                        tabPadding = innerPadding
+                    )
+                }
+
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(if (isTabDestination) innerPadding else PaddingValues(0.dp))
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     NavDisplay(
                         backStack = backStack,

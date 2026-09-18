@@ -42,6 +42,7 @@ class SharedPreferencesMigration(private val context: Context) : DataMigration<S
             userUid = prefs.getString("user_uid", null),
             userEmail = prefs.getString("user_email", null),
             isAntiUninstallEnabled = prefs.getBoolean("anti_uninstall_enabled", false),
+            isDisablePopupWindowEnabled = prefs.getBoolean("disable_popup_window", false),
             isPermissionBlockEnabled = prefs.getBoolean("permission_block_enabled", false),
             isPrivateDnsEnabled = prefs.getBoolean("private_dns_enabled", false),
             selectedPrivateDnsHostname = prefs.getString("selected_private_dns", "dns.adguard.com") ?: "dns.adguard.com",
@@ -106,6 +107,7 @@ class DataStoreManager(private val context: Context) {
         prefs.isPrivateDnsEnabled = updated.isPrivateDnsEnabled
         prefs.selectedPrivateDnsHostname = updated.selectedPrivateDnsHostname
         prefs.isPrivateDnsLocked = updated.isPrivateDnsLocked
+        prefs.isDisablePopupWindowEnabled = updated.isDisablePopupWindowEnabled
         @Suppress("DEPRECATION")
         prefs.blockedWebsites = updated.blockedWebsites.toMutableSet()
     }

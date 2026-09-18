@@ -2,10 +2,13 @@ package com.curbme.app.service.accessibility
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
+import android.graphics.Rect
 import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
+import android.widget.Toast
 import com.curbme.app.core.utils.Constants
 import com.curbme.app.core.utils.UiDumper.dumpAll
 import com.curbme.app.data.local.prefs.DataStoreManager
@@ -19,6 +22,7 @@ import com.curbme.app.service.accessibility.handlers.ShortsBlockHandler
 import com.curbme.app.service.accessibility.handlers.WebsiteBlockHandler
 import com.curbme.app.service.accessibility.handlers.WebsiteUsageHandler
 import com.curbme.app.service.monitor.AppUsageTracker
+import com.curbme.app.service.overlay.FocusModeOverlayService
 import com.curbme.app.ui.block.AppBlockOverlayManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -128,6 +132,11 @@ class GuardianAccessibilityService : AccessibilityService() {
 
         val eventType = event.eventType
         val pkgSeq = event.packageName
+
+        if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            checkAndHandlePopupWindow()
+        }
+
         if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && pkgSeq != null) {
             val pkgName = pkgSeq.toString()
             lastForegroundPackage = pkgName
@@ -147,7 +156,7 @@ class GuardianAccessibilityService : AccessibilityService() {
         val pkgSeq = event.packageName
         
         // ── Block Escape Suppression ──────────────────────────────────────────
-        if (AppBlockOverlayManager.isOverlayShowing) {
+        if (AppBlockOverlayManager.isOverlayShowing || FocusModeOverlayService.isFocusModeActive) {
             val pkg = pkgSeq ?: ""
             // If user tries to open Recents or System settings while overlay is up
             if (pkg == "com.android.systemui" || pkg == "com.android.settings") {
@@ -157,7 +166,8 @@ class GuardianAccessibilityService : AccessibilityService() {
             }
         }
 
-        if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+        if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            checkAndHandlePopupWindow()
             val root = rootInActiveWindow // Slow call
             if (root != null) {
                 if (findAndPerformBack(root)) return
@@ -273,6 +283,114 @@ class GuardianAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             return false
         }
+    }
+
+    // ── Popup & Split Screen Window Management ──────────────────────────────
+    private var lastToastTime = 0L
+    private var isClosingPopupWindow = false
+
+    private fun checkAndHandlePopupWindow() {
+        val isPopupWindowDisabled = settings.isDisablePopupWindowEnabled || PrefsManager(this).isDisablePopupWindowEnabled
+        if (!isPopupWindowDisabled) return
+
+        val displayMetrics = resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val screenHeight = displayMetrics.heightPixels
+
+        val activeWindows = windows ?: return
+
+        for (window in activeWindows) {
+            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+
+            val pkg = window.root?.packageName?.toString() ?: continue
+            if (isExcludedPackage(pkg)) continue
+
+            // Skip windows that aren't focused and active
+            if (!window.isFocused && !window.isActive) continue
+
+            val bounds = Rect()
+            window.getBoundsInScreen(bounds)
+
+            val isFloating = !(
+                bounds.width() >= screenWidth * 0.95f &&
+                bounds.height() >= screenHeight * 0.85f
+            )
+
+            if (isFloating) {
+                Log.d(TAG, "Floating or split-screen window detected for pkg: $pkg. Closing via BACK...")
+                closePopupWindowRepeatedly()
+                showPopupWindowDisabledToast()
+                break
+            }
+        }
+    }
+
+    private fun closePopupWindowRepeatedly() {
+        if (isClosingPopupWindow) return
+        isClosingPopupWindow = true
+
+        performGlobalAction(GLOBAL_ACTION_BACK)
+
+        serviceScope.launch(Dispatchers.Main) {
+            var retries = 0
+            while (retries < 5) {
+                delay(120)
+                val displayMetrics = resources.displayMetrics
+                val screenWidth = displayMetrics.widthPixels
+                val screenHeight = displayMetrics.heightPixels
+
+                val stillFloating = windows?.any { window ->
+                    if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) return@any false
+                    val pkg = window.root?.packageName?.toString() ?: return@any false
+                    if (isExcludedPackage(pkg)) return@any false
+                    if (!window.isFocused && !window.isActive) return@any false
+
+                    val bounds = Rect()
+                    window.getBoundsInScreen(bounds)
+                    !(bounds.width() >= screenWidth * 0.95f && bounds.height() >= screenHeight * 0.85f)
+                } ?: false
+
+                if (stillFloating) {
+                    Log.d(TAG, "Window still floating/split-screen (retry $retries) -> pressing BACK again")
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                    retries++
+                } else {
+                    break
+                }
+            }
+            isClosingPopupWindow = false
+        }
+    }
+
+    private fun showPopupWindowDisabledToast() {
+        val now = System.currentTimeMillis()
+        if (now - lastToastTime > 2500L) {
+            lastToastTime = now
+            serviceScope.launch(Dispatchers.Main) {
+                Toast.makeText(
+                    applicationContext,
+                    "Popup window or split screen is disabled",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    private val systemPackages by lazy {
+        setOf(
+            "android",
+            "com.android.systemui",
+            "com.miui.home",
+            "com.miui.securitycenter",
+            packageName
+        )
+    }
+
+    private fun isExcludedPackage(pkgName: String): Boolean {
+        if (pkgName in systemPackages) return true
+        if (pkgName.contains("launcher") || pkgName.contains("home")) return true
+        if (pkgName == packageName) return true
+        return false
     } //    private void logViewHierarchy(AccessibilityNodeInfo nodeInfo, int depth) {
     //        if (nodeInfo == null) return;
     //        StringBuilder prefix = new StringBuilder();

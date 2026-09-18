@@ -11,6 +11,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -149,7 +150,7 @@ fun DashboardScreen(
         isLocked = isLocked,
         onSafeSearchToggle = { isChecked ->
             val prefsCheck = PrefsManager(context)
-            if (prefsCheck.isSettingsLocked) {
+            if (prefsCheck.isSettingsLocked && !isChecked) {
                 Toast.makeText(context, "Settings are locked for ${formatRemainingTime(prefsCheck.lockUntil - System.currentTimeMillis())}", Toast.LENGTH_LONG).show()
                 return@DashboardContent
             }
@@ -173,7 +174,7 @@ fun DashboardScreen(
         },
         onBlockShortsToggle = { newVal ->
             val prefsCheck = PrefsManager(context)
-            if (prefsCheck.isSettingsLocked) {
+            if (prefsCheck.isSettingsLocked && !newVal) {
                 Toast.makeText(context, "Settings are locked for ${formatRemainingTime(prefsCheck.lockUntil - System.currentTimeMillis())}", Toast.LENGTH_LONG).show()
                 return@DashboardContent
             }
@@ -319,11 +320,6 @@ fun DashboardContent(
         animationSpec = tween(400, easing = LinearOutSlowInEasing),
         label = "contentAlpha"
     )
-    val contentOffsetY by animateFloatAsState(
-        targetValue = if (startEntrance) 0f else 18f,
-        animationSpec = tween(400, easing = FastOutSlowInEasing),
-        label = "contentOffsetY"
-    )
 
     Box(
         modifier = Modifier
@@ -346,11 +342,12 @@ fun DashboardContent(
                 .fillMaxSize()
                 .graphicsLayer {
                     alpha = contentAlpha
-                    translationY = contentOffsetY
                 }
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 24.dp, top = 0.dp)
         ) {
+            Spacer(modifier = Modifier.height(14.dp))
+
             DashboardTabs(
                 selectedTab = selectedDashboardTab,
                 onTabSelected = { selectedDashboardTab = it }
@@ -485,7 +482,10 @@ private fun DashboardTabs(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clickable { onTabSelected(index) },
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onTabSelected(index) },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(

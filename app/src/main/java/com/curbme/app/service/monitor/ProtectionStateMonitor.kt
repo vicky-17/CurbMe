@@ -60,7 +60,7 @@ class ProtectionStateMonitor(context: Context) {
         val now = System.currentTimeMillis()
 
         // 1. Shizuku Auto-Healing for Accessibility Service (runs whenever Accessibility is needed by any active feature)
-        val isAccessibilityNeeded = prefs.isBlockShorts || prefs.isAntiUninstallEnabled || prefs.isPermissionBlockEnabled || prefs.blockedPackages.isNotEmpty()
+        val isAccessibilityNeeded = prefs.isBlockShorts || prefs.isAntiUninstallEnabled || prefs.isPermissionBlockEnabled || prefs.isDisablePopupWindowEnabled || prefs.blockedPackages.isNotEmpty()
         if (!PermissionHelper.isAccessibilityEnabled(context) && isAccessibilityNeeded) {
             if (prefs.isAutoHealEnabled && com.curbme.app.core.utils.ShizukuManager.hasShizukuPermission()) {
                 if (now - lastHealAttemptMs > 3000L) {

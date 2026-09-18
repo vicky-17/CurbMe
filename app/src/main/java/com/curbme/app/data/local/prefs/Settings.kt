@@ -24,6 +24,7 @@ data class Settings(
     val userUid: String? = null,
     val userEmail: String? = null,
     val isAntiUninstallEnabled: Boolean = false,
+    val isDisablePopupWindowEnabled: Boolean = false,
     val lockUntilTimestamp: Long = 0,
     val lockDurationMs: Long = 0,
     val lockAnchorElapsed: Long = 0,

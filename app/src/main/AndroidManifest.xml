@@ -191,6 +191,16 @@
                 android:value="settings_page_block_overlay" />
         </service>
 
+        <service
+            android:name=".service.overlay.FocusModeOverlayService"
+            android:exported="false"
+            android:process=":guardian"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="focus_mode_overlay" />
+        </service>
+
         <!-- ── Firebase Cloud Messaging ─────────────────────────────────── -->
         <service
             android:name=".messaging.MonkMessagingService"

@@ -1,6 +1,9 @@
 package com.curbme.app.ui.security
 
+import android.content.Intent
+import android.net.Uri
 import android.os.SystemClock
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,6 +38,7 @@ import com.curbme.app.core.utils.MonochromeHelper
 import com.curbme.app.core.utils.OemAutostartHelper
 import com.curbme.app.data.local.prefs.DataStoreManager
 import com.curbme.app.data.local.prefs.PrefsManager
+import com.curbme.app.service.overlay.FocusModeOverlayService
 import com.curbme.app.ui.components.cards.ActionCard
 import com.curbme.app.ui.components.cards.AdvancedProtectionCard
 import com.curbme.app.ui.components.cards.DnsProtectionCard
@@ -112,11 +116,13 @@ fun SecurityScreen(prefs: PrefsManager) {
     var keepVpnAlive            by remember { mutableStateOf(settings.isKeepVpnAlive) }
     var preventVpnOverride      by remember { mutableStateOf(settings.isPreventVpnOverride) }
     var antiUninstallEnabled    by remember { mutableStateOf(settings.isAntiUninstallEnabled) }
+    var disablePopupWindow      by remember { mutableStateOf(settings.isDisablePopupWindowEnabled) }
     
     LaunchedEffect(settings) {
         keepVpnAlive = settings.isKeepVpnAlive
         preventVpnOverride = settings.isPreventVpnOverride
         antiUninstallEnabled = settings.isAntiUninstallEnabled
+        disablePopupWindow = settings.isDisablePopupWindowEnabled
     }
 
     // ── Dialog visibility ─────────────────────────────────────────────────────
@@ -125,14 +131,19 @@ fun SecurityScreen(prefs: PrefsManager) {
     var showDisableVpnPinDialog     by remember { mutableStateOf(false) }
     var showAntiUninstallPinDialog  by remember { mutableStateOf(false) }
 
-    var showDnsLockDialog by remember { mutableStateOf(false) }
+    var showDnsLockDialog           by remember { mutableStateOf(false) }
+    var showFocusTimePickerDialog   by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(Color(0xFF04040c), Color(0xFF080B1A), Color(0xFF04040c))
+                    listOf(
+                        CurbMeTheme.colors.bgDeep,
+                        Color(0xFF080B1A), // Deep subtle tint
+                        CurbMeTheme.colors.bgDeep
+                    )
                 )
             )
     ) {
@@ -152,7 +163,7 @@ fun SecurityScreen(prefs: PrefsManager) {
                 subtitle = "Some phones kill VPN unexpectedly. We'll attempt to keep it on for as long as possible.",
                 isEnabled = keepVpnAlive,
                 onToggle = { newValue ->
-                    if (settings.isSettingsLocked) {
+                    if (settings.isSettingsLocked && !newValue) {
                         Toast.makeText(
                             context,
                             "Settings are locked for ${formatRemainingTime(settings.lockUntilTimestamp - System.currentTimeMillis())}",
@@ -179,7 +190,7 @@ fun SecurityScreen(prefs: PrefsManager) {
                 subtitle = "Prevents another VPN app from overriding CurbMe's filter.",
                 isEnabled = preventVpnOverride,
                 onToggle = { newValue ->
-                    if (settings.isSettingsLocked) {
+                    if (settings.isSettingsLocked && !newValue) {
                         Toast.makeText(
                             context,
                             "Settings are locked for ${formatRemainingTime(settings.lockUntilTimestamp - System.currentTimeMillis())}",
@@ -255,7 +266,7 @@ fun SecurityScreen(prefs: PrefsManager) {
                 subtitle = "Uses Accessibility Service & Device Admin to block unauthorized uninstallation, Force Stop, and settings tampering for CurbMe.",
                 isEnabled = antiUninstallEnabled,
                 onToggle = { newValue ->
-                    if (settings.isSettingsLocked) {
+                    if (settings.isSettingsLocked && !newValue) {
                         Toast.makeText(
                             context,
                             "Settings are locked for ${formatRemainingTime(settings.lockUntilTimestamp - System.currentTimeMillis())}",
@@ -269,6 +280,51 @@ fun SecurityScreen(prefs: PrefsManager) {
                         }
                     } else {
                         showAntiUninstallPinDialog = true
+                    }
+                }
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            ToggleCard(
+                emoji    = "🪟",
+                title    = "Disable Popup & Split-Screen",
+                subtitle = "Detects floating, popup, or split-screen windows and closes them automatically.",
+                isEnabled = disablePopupWindow,
+                onToggle = { newValue ->
+                    if (settings.isSettingsLocked && !newValue) {
+                        Toast.makeText(
+                            context,
+                            "Settings are locked for ${formatRemainingTime(settings.lockUntilTimestamp - System.currentTimeMillis())}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@ToggleCard
+                    }
+                    disablePopupWindow = newValue
+                    scope.launch {
+                        dataStoreManager.updateSettings { it.copy(isDisablePopupWindowEnabled = newValue) }
+                    }
+                }
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            SectionLabel("FOCUS & MINDFUL PAUSE")
+
+            ActionCard(
+                title = "Focus Mode (Mindful Pause)",
+                description = "Locks the entire screen (covering status bar, buttons, and navigation bar) for a mindful pause.",
+                icon = Icons.Rounded.Security,
+                onClick = {
+                    if (!Settings.canDrawOverlays(context)) {
+                        val intent = Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:${context.packageName}")
+                        )
+                        context.startActivity(intent)
+                        Toast.makeText(context, "Please grant Overlay permission to use Focus Mode.", Toast.LENGTH_LONG).show()
+                    } else {
+                        showFocusTimePickerDialog = true
                     }
                 }
             )
@@ -331,7 +387,13 @@ fun SecurityScreen(prefs: PrefsManager) {
                 onDnsToggle = { newValue ->
                     if (!canControlPrivateDns) {
                         viewModel.showDeviceOwnerRequiredDialog()
-                    } else if (!settings.isSettingsLocked) {
+                    } else if (settings.isSettingsLocked && !newValue) {
+                        Toast.makeText(
+                            context,
+                            "Settings are locked for ${formatRemainingTime(settings.lockUntilTimestamp - System.currentTimeMillis())}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else {
                         viewModel.onPrivateDnsToggleRequested(newValue)
                     }
                 },
@@ -581,7 +643,102 @@ fun SecurityScreen(prefs: PrefsManager) {
                 dismissButton = { TextButton(onClick = { viewModel.dismissAppConfirmDialog() }) { Text("Cancel", color = Color.White) } }
             )
         }
+
+        if (showFocusTimePickerDialog) {
+            FocusTimePickerDialog(
+                onConfirm = { seconds ->
+                    showFocusTimePickerDialog = false
+                    FocusModeOverlayService.startFocusMode(context, seconds)
+                },
+                onDismiss = {
+                    showFocusTimePickerDialog = false
+                }
+            )
+        }
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FocusTimePickerDialog(
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedSeconds by remember { mutableIntStateOf(10) }
+
+    val presetOptions = listOf(
+        10 to "10 Sec",
+        30 to "30 Sec",
+        60 to "1 Min",
+        300 to "5 Min",
+        600 to "10 Min",
+        900 to "15 Min"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF0F172A),
+        title = {
+            Column {
+                Text(
+                    text = "🧘 Select Focus Duration",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Choose how long to lock the screen for a mindful pause.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        },
+        text = {
+            Column {
+                Spacer(Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    presetOptions.forEach { (seconds, label) ->
+                        val isSelected = selectedSeconds == seconds
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedSeconds = seconds },
+                            label = {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = Color(0xFF1E293B),
+                                selectedContainerColor = Color(0xFF6366F1),
+                                labelColor = Color(0xFF94A3B8),
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(selectedSeconds) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
+            ) {
+                Text("Start Focus Mode", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFF94A3B8))
+            }
+        }
+    )
 }
 
 @Composable
