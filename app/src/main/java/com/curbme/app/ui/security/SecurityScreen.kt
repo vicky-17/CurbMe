@@ -30,7 +30,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -87,7 +86,6 @@ fun SecurityScreen(prefs: PrefsManager) {
     val newHostnameInput by viewModel.newHostnameInput.collectAsState()
     val showEnableHostnameDialog by viewModel.showEnableHostnameDialog.collectAsState()
     val isApplyingPrivateDns by viewModel.isApplyingPrivateDns.collectAsState()
-    val privateDnsError by viewModel.privateDnsError.collectAsState()
     val isPrivateDnsLocked by viewModel.isPrivateDnsLocked.collectAsState()
     val showAppConfirmDialog by viewModel.showAppConfirmDialog.collectAsState()
 
@@ -300,14 +298,14 @@ fun SecurityScreen(prefs: PrefsManager) {
                 subtitle = "Detects floating, popup, or split-screen windows and closes them automatically.",
                 isEnabled = disablePopupWindow,
                 onToggle = { newValue ->
-                    if (settings.isSettingsLocked && !newValue) {
-                        Toast.makeText(
-                            context,
-                            "Settings are locked for ${formatRemainingTime(settings.lockUntilTimestamp - System.currentTimeMillis())}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        return@ToggleCard
-                    }
+//                    if (settings.isSettingsLocked && !newValue) {
+//                        Toast.makeText(
+//                            context,
+//                            "Settings are locked for ${formatRemainingTime(settings.lockUntilTimestamp - System.currentTimeMillis())}",
+//                            Toast.LENGTH_LONG
+//                        ).show()
+//                        return@ToggleCard
+//                    }
                     disablePopupWindow = newValue
                     scope.launch {
                         dataStoreManager.updateSettings { it.copy(isDisablePopupWindowEnabled = newValue) }

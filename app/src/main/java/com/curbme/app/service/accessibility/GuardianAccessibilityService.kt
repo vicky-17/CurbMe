@@ -3,6 +3,7 @@ package com.curbme.app.service.accessibility
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.Rect
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -132,6 +133,12 @@ class GuardianAccessibilityService : AccessibilityService() {
 
         val eventType = event.eventType
         val pkgSeq = event.packageName
+        
+        // Aggressively cache window ID to package name mapping from ALL events
+        val windowId = event.windowId
+        if (windowId != -1 && pkgSeq != null) {
+            windowPackageCache[windowId] = pkgSeq.toString()
+        }
 
         if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             checkAndHandlePopupWindow()
@@ -289,6 +296,100 @@ class GuardianAccessibilityService : AccessibilityService() {
     private var lastToastTime = 0L
     private var isClosingPopupWindow = false
 
+    private val windowPackageCache = ConcurrentHashMap<Int, String>()
+
+    private fun getWindowPackageName(window: AccessibilityWindowInfo): String? {
+        val pkg = try {
+            window.root?.packageName?.toString()
+        } catch (e: Exception) {
+            null
+        }
+        if (pkg != null) {
+            windowPackageCache[window.id] = pkg
+            return pkg
+        }
+        return windowPackageCache[window.id]
+    }
+
+    private fun isPackageInFloatingOrSplitMode(
+        pkg: String,
+        activeWindows: List<AccessibilityWindowInfo>,
+        screenWidth: Int,
+        screenHeight: Int
+    ): Boolean {
+        if (isExcludedPackage(pkg)) return false
+
+        val fullWidthThreshold = (screenWidth * 0.90f).toInt()
+        val fullHeightThreshold = (screenHeight * 0.70f).toInt()
+
+        var pkgHasFullScreenWindow = false
+        var isPkgActiveAndSmall = false
+        val appPackagesOnScreen = mutableSetOf<String>()
+
+        for (window in activeWindows) {
+            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+
+            val windowPkg = getWindowPackageName(window) ?: continue
+
+            val bounds = Rect()
+            window.getBoundsInScreen(bounds)
+            val isFullScreen = bounds.width() >= fullWidthThreshold && bounds.height() >= fullHeightThreshold
+
+            // We only count actual apps towards the "number of apps on screen" logic.
+            // Exclude temporary system overlays (which might technically be TYPE_APPLICATION on some devices).
+            if (windowPkg != "com.android.systemui" && windowPkg != "android") {
+                appPackagesOnScreen.add(windowPkg)
+            }
+
+            if (windowPkg == pkg) {
+                if (isFullScreen) {
+                    pkgHasFullScreenWindow = true
+                }
+                
+                if (window.isFocused || window.isActive) {
+                    if (!isFullScreen) {
+                        isPkgActiveAndSmall = true
+                    }
+                }
+            }
+        }
+
+        // 1. If the package has ANY full-screen window on screen, this small window is just an in-app popup/menu
+        if (pkgHasFullScreenWindow) {
+            return false
+        }
+
+        // 2. Extra sub-window signal on API 33+ (Android 13+) to verify in-app dialogs
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasParentWindow = activeWindows.any { window ->
+                val windowPkg = getWindowPackageName(window)
+                if (windowPkg == pkg && (window.isFocused || window.isActive)) {
+                    try {
+                        window.parent != null
+                    } catch (e: Exception) {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+            if (hasParentWindow) {
+                return false
+            }
+        }
+
+        // 3. If there is only ONE application package visible on the entire screen,
+        // it cannot be split-screen or floating over another app. It must be a dialog/popup of itself,
+        // even if the main window dropped out of the Accessibility list.
+        if (appPackagesOnScreen.size <= 1) {
+            return false
+        }
+
+        // 4. If there are MULTIPLE app packages on screen (Split screen or Floating),
+        // and our target package does NOT have a full screen window, but IS active and small -> it is Floating/Split!
+        return isPkgActiveAndSmall
+    }
+
     private fun checkAndHandlePopupWindow() {
         val isPopupWindowDisabled = settings.isDisablePopupWindowEnabled || PrefsManager(this).isDisablePopupWindowEnabled
         if (!isPopupWindowDisabled) return
@@ -299,25 +400,24 @@ class GuardianAccessibilityService : AccessibilityService() {
 
         val activeWindows = windows ?: return
 
-        for (window in activeWindows) {
-            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+        // Find candidate packages from active/focused application windows
+        val targetPackages = mutableSetOf<String>()
+        activeWindows.forEach { window ->
+            val pkg = getWindowPackageName(window)
+            if (pkg != null && !isExcludedPackage(pkg) && (window.isFocused || window.isActive)) {
+                targetPackages.add(pkg)
+            }
+        }
+        rootInActiveWindow?.packageName?.toString()?.let { pkg ->
+            if (!isExcludedPackage(pkg)) targetPackages.add(pkg)
+        }
+        lastForegroundPackage?.let { pkg ->
+            if (!isExcludedPackage(pkg)) targetPackages.add(pkg)
+        }
 
-            val pkg = window.root?.packageName?.toString() ?: continue
-            if (isExcludedPackage(pkg)) continue
-
-            // Skip windows that aren't focused and active
-            if (!window.isFocused && !window.isActive) continue
-
-            val bounds = Rect()
-            window.getBoundsInScreen(bounds)
-
-            val isFloating = !(
-                bounds.width() >= screenWidth * 0.95f &&
-                bounds.height() >= screenHeight * 0.85f
-            )
-
-            if (isFloating) {
-                Log.d(TAG, "Floating or split-screen window detected for pkg: $pkg. Closing via BACK...")
+        for (pkg in targetPackages) {
+            if (isPackageInFloatingOrSplitMode(pkg, activeWindows, screenWidth, screenHeight)) {
+                Log.d(TAG, "Floating or split-screen mode detected for pkg: $pkg. Closing via BACK...")
                 closePopupWindowRepeatedly()
                 showPopupWindowDisabledToast()
                 break
@@ -339,16 +439,28 @@ class GuardianAccessibilityService : AccessibilityService() {
                 val screenWidth = displayMetrics.widthPixels
                 val screenHeight = displayMetrics.heightPixels
 
-                val stillFloating = windows?.any { window ->
-                    if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) return@any false
-                    val pkg = window.root?.packageName?.toString() ?: return@any false
-                    if (isExcludedPackage(pkg)) return@any false
-                    if (!window.isFocused && !window.isActive) return@any false
+                val activeWindows = windows
+                val stillFloating = if (activeWindows != null) {
+                    val targetPackages = mutableSetOf<String>()
+                    activeWindows.forEach { window ->
+                        val pkg = getWindowPackageName(window)
+                        if (pkg != null && !isExcludedPackage(pkg) && (window.isFocused || window.isActive)) {
+                            targetPackages.add(pkg)
+                        }
+                    }
+                    rootInActiveWindow?.packageName?.toString()?.let { pkg ->
+                        if (!isExcludedPackage(pkg)) targetPackages.add(pkg)
+                    }
+                    lastForegroundPackage?.let { pkg ->
+                        if (!isExcludedPackage(pkg)) targetPackages.add(pkg)
+                    }
 
-                    val bounds = Rect()
-                    window.getBoundsInScreen(bounds)
-                    !(bounds.width() >= screenWidth * 0.95f && bounds.height() >= screenHeight * 0.85f)
-                } ?: false
+                    targetPackages.any { pkg ->
+                        isPackageInFloatingOrSplitMode(pkg, activeWindows, screenWidth, screenHeight)
+                    }
+                } else {
+                    false
+                }
 
                 if (stillFloating) {
                     Log.d(TAG, "Window still floating/split-screen (retry $retries) -> pressing BACK again")
