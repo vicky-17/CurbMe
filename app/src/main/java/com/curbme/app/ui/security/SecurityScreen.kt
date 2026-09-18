@@ -7,13 +7,19 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.*
@@ -27,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,6 +63,7 @@ import com.curbme.app.ui.components.dialogs.VpnKeepAliveDialog
 import com.curbme.app.ui.sidebar.formatRemainingTime
 import com.curbme.app.ui.theme.CurbMeTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 @Composable
@@ -658,22 +666,23 @@ fun SecurityScreen(prefs: PrefsManager) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+private fun formatFocusSummary(hours: Int, minutes: Int): String {
+    if (hours == 0 && minutes == 0) return "Select duration"
+    val hStr = if (hours > 0) "${hours}h" else ""
+    val mStr = if (minutes > 0) "${minutes}m" else ""
+    val timeStr = listOf(hStr, mStr).filter { it.isNotEmpty() }.joinToString(" ")
+    return "Focus for $timeStr"
+}
+
 @Composable
 private fun FocusTimePickerDialog(
     onConfirm: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selectedSeconds by remember { mutableIntStateOf(10) }
+    var selectedHours by remember { mutableIntStateOf(0) }
+    var selectedMinutes by remember { mutableIntStateOf(15) }
 
-    val presetOptions = listOf(
-        10 to "10 Sec",
-        30 to "30 Sec",
-        60 to "1 Min",
-        300 to "5 Min",
-        600 to "10 Min",
-        900 to "15 Min"
-    )
+    val totalSeconds = (selectedHours * 3600) + (selectedMinutes * 60)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -695,42 +704,77 @@ private fun FocusTimePickerDialog(
             }
         },
         text = {
-            Column {
-                Spacer(Modifier.height(8.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Spacer(Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF1E293B), RoundedCornerShape(16.dp))
+                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    presetOptions.forEach { (seconds, label) ->
-                        val isSelected = selectedSeconds == seconds
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedSeconds = seconds },
-                            label = {
-                                Text(
-                                    text = label,
-                                    color = if (isSelected) Color.White else Color(0xFF94A3B8),
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = Color(0xFF1E293B),
-                                selectedContainerColor = Color(0xFF6366F1),
-                                labelColor = Color(0xFF94A3B8),
-                                selectedLabelColor = Color.White
-                            )
-                        )
-                    }
+                    WheelPickerColumn(
+                        label = "HOURS",
+                        value = selectedHours,
+                        range = 0..12,
+                        onValueChange = { selectedHours = it },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Text(
+                        text = ":",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    WheelPickerColumn(
+                        label = "MINUTES",
+                        value = selectedMinutes,
+                        range = 0..59,
+                        onValueChange = { selectedMinutes = it },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                val summaryText = formatFocusSummary(selectedHours, selectedMinutes)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF6366F1).copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                        .padding(vertical = 10.dp, horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = summaryText,
+                        color = if (totalSeconds > 0) Color(0xFF818CF8) else Color(0xFF64748B),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(selectedSeconds) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
+                onClick = { onConfirm(totalSeconds) },
+                enabled = totalSeconds > 0,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6366F1),
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFF1E293B),
+                    disabledContentColor = Color(0xFF64748B)
+                )
             ) {
-                Text("Start Focus Mode", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Start Focus Mode", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -739,6 +783,134 @@ private fun FocusTimePickerDialog(
             }
         }
     )
+}
+
+@Composable
+private fun WheelPickerColumn(
+    label: String,
+    value: Int,
+    range: IntRange,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val items = remember(range) { range.toList() }
+    val initialIndex = remember { items.indexOf(value).coerceAtLeast(0) }
+    val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val coroutineScope = rememberCoroutineScope()
+    val flingBehavior = rememberSnapFlingBehavior(lazyListState = lazyListState)
+
+    LaunchedEffect(lazyListState) {
+        snapshotFlow { lazyListState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { isScrolling ->
+                if (!isScrolling) {
+                    val index = lazyListState.firstVisibleItemIndex.coerceIn(0, items.lastIndex)
+                    if (items[index] != value) {
+                        onValueChange(items[index])
+                    }
+                }
+            }
+    }
+
+    LaunchedEffect(value) {
+        val targetIndex = items.indexOf(value).coerceAtLeast(0)
+        if (!lazyListState.isScrollInProgress && lazyListState.firstVisibleItemIndex != targetIndex) {
+            lazyListState.animateScrollToItem(targetIndex)
+        }
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+    ) {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF818CF8),
+            letterSpacing = 1.2.sp,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
+        IconButton(
+            onClick = {
+                val nextValue = if (value < range.last) value + 1 else range.first
+                onValueChange(nextValue)
+            },
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowUp,
+                contentDescription = "Increase $label",
+                tint = Color(0xFF94A3B8)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .height(120.dp)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF6366F1).copy(alpha = 0.2f))
+                    .border(1.dp, Color(0xFF6366F1).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            )
+
+            val selectedIndex by remember { derivedStateOf { lazyListState.firstVisibleItemIndex } }
+
+            LazyColumn(
+                state = lazyListState,
+                flingBehavior = flingBehavior,
+                contentPadding = PaddingValues(vertical = 40.dp),
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                items(items.size) { index ->
+                    val itemValue = items[index]
+                    val isSelected = selectedIndex == index
+
+                    Box(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    lazyListState.animateScrollToItem(index)
+                                }
+                                onValueChange(itemValue)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (range.last >= 59) "%02d".format(itemValue) else "%d".format(itemValue),
+                            fontSize = if (isSelected) 22.sp else 16.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) Color.White else Color(0xFF64748B)
+                        )
+                    }
+                }
+            }
+        }
+
+        IconButton(
+            onClick = {
+                val prevValue = if (value > range.first) value - 1 else range.last
+                onValueChange(prevValue)
+            },
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowDown,
+                contentDescription = "Decrease $label",
+                tint = Color(0xFF94A3B8)
+            )
+        }
+    }
 }
 
 @Composable

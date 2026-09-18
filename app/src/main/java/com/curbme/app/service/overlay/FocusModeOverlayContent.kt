@@ -60,7 +60,12 @@ fun FocusModeOverlayContent(
         }
     }
 
-    val displayTime = if (remainingSeconds >= 60) {
+    val displayTime = if (remainingSeconds >= 3600) {
+        val hrs = remainingSeconds / 3600
+        val mins = (remainingSeconds % 3600) / 60
+        val secs = remainingSeconds % 60
+        String.format(Locale.US, "%02d:%02d:%02d", hrs, mins, secs)
+    } else if (remainingSeconds >= 60) {
         val mins = remainingSeconds / 60
         val secs = remainingSeconds % 60
         String.format(Locale.US, "%02d:%02d", mins, secs)
@@ -68,12 +73,20 @@ fun FocusModeOverlayContent(
         "$remainingSeconds"
     }
 
-    val displayLabel = if (remainingSeconds >= 60) {
+    val displayLabel = if (remainingSeconds >= 3600) {
+        "HOURS REMAINING"
+    } else if (remainingSeconds >= 60) {
         "MINUTES REMAINING"
     } else if (remainingSeconds == 1) {
         "SECOND"
     } else {
         "SECONDS"
+    }
+
+    val timeFontSize = when {
+        remainingSeconds >= 3600 -> 36.sp
+        remainingSeconds >= 60 -> 48.sp
+        else -> 64.sp
     }
 
     Box(
@@ -153,7 +166,7 @@ fun FocusModeOverlayContent(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = displayTime,
-                        fontSize = if (remainingSeconds >= 60) 48.sp else 64.sp,
+                        fontSize = timeFontSize,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
