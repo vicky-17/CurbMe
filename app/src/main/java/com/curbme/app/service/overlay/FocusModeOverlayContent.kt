@@ -3,11 +3,14 @@ package com.curbme.app.service.overlay
 import android.os.SystemClock
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,20 +19,34 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.curbme.app.data.local.db.entity.FocusSessionEntity
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
 
 @Composable
 fun FocusModeOverlayContent(
     durationSeconds: Int = 10,
+    activeSession: FocusSessionEntity? = null,
+    remainingSecondsFlow: StateFlow<Int>? = null,
     onFinished: () -> Unit
 ) {
+    val context = LocalContext.current
     var remainingSeconds by remember { mutableIntStateOf(durationSeconds) }
     var progressNormalized by remember { mutableFloatStateOf(1f) }
+
+    val flowVal = remainingSecondsFlow?.collectAsState()?.value
+    LaunchedEffect(flowVal) {
+        val syncSec = flowVal
+        if (syncSec != null && syncSec > 0 && Math.abs(syncSec - remainingSeconds) > 2) {
+            remainingSeconds = syncSec
+        }
+    }
 
     val animatedProgress by animateFloatAsState(
         targetValue = progressNormalized,
@@ -38,11 +55,12 @@ fun FocusModeOverlayContent(
     )
 
     LaunchedEffect(durationSeconds) {
-        val totalMs = durationSeconds * 1000L
+        val totalMs = (activeSession?.totalDurationSeconds ?: durationSeconds) * 1000L
         val startTime = SystemClock.elapsedRealtime()
+        val initialElapsed = (totalMs - (durationSeconds * 1000L)).coerceAtLeast(0L)
 
         while (true) {
-            val elapsed = SystemClock.elapsedRealtime() - startTime
+            val elapsed = initialElapsed + (SystemClock.elapsedRealtime() - startTime)
             val remainingMs = (totalMs - elapsed).coerceAtLeast(0L)
             
             val sec = (remainingMs / 1000L).toInt() + (if (remainingMs % 1000L > 0) 1 else 0)
@@ -193,6 +211,23 @@ fun FocusModeOverlayContent(
                     fontSize = 12.sp,
                     color = Color(0xFFCBD5E1),
                     fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            OutlinedButton(
+                onClick = {
+                    FocusExitPaymentHandler.requestPaymentExit(context, activeSession)
+                },
+                border = BorderStroke(1.dp, Color(0xFF6366F1).copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Text(
+                    text = "💳 Exit with Payment",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
                 )
             }
         }

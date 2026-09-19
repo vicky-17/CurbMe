@@ -5,6 +5,11 @@ import android.graphics.Camera
 import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Rect
+import android.media.AudioAttributes
+import android.media.SoundPool
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.AttributeSet
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -14,6 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSnapHelper
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
+import com.curbme.app.R
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -38,6 +44,28 @@ class WheelPickerRecyclerView @JvmOverloads constructor(
     private val wheelMatrix: Matrix = Matrix()
     private val snapHelper = WheelSnapHelper()
     private var hapticFeedbackLastTriggerPosition: Int = 0
+
+    private val vibrator: Vibrator? = try {
+        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    } catch (_: Exception) {
+        null
+    }
+
+    private val soundPool: SoundPool = SoundPool.Builder()
+        .setMaxStreams(3)
+        .setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+        )
+        .build()
+
+    private val soundId: Int = try {
+        soundPool.load(context, R.raw.tick, 1)
+    } catch (_: Exception) {
+        0
+    }
 
     /**
      * The internal state when scrolling to the specified position and ignoring the vibration feedback.
@@ -192,11 +220,34 @@ class WheelPickerRecyclerView @JvmOverloads constructor(
 
         if (hapticFeedbackLastTriggerPosition != visibleCenterItemPosition) {
             hapticFeedbackLastTriggerPosition = visibleCenterItemPosition
-            if (isHapticFeedbackEnabled && !ignoreHapticFeedback) {
-                performHapticFeedback(
-                    HapticFeedbackConstants.KEYBOARD_TAP,
-                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
-                )
+            if (!ignoreHapticFeedback) {
+                // Play custom tick.wav sound via SoundPool
+                if (soundId != 0) {
+                    try {
+                        soundPool.play(soundId, 0.8f, 0.8f, 1, 0, 1.0f)
+                    } catch (_: Exception) {}
+                }
+
+                // Direct vibration motor pulse (bypasses system UI haptic toggle)
+                try {
+                    if (vibrator?.hasVibrator() == true) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+                        } else {
+                            @Suppress("DEPRECATION")
+                            vibrator.vibrate(10L)
+                        }
+                    }
+                } catch (_: Exception) {}
+
+                if (isHapticFeedbackEnabled) {
+                    try {
+                        performHapticFeedback(
+                            HapticFeedbackConstants.KEYBOARD_TAP,
+                            HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                        )
+                    } catch (_: Exception) {}
+                }
             }
         }
     }
@@ -206,6 +257,13 @@ class WheelPickerRecyclerView @JvmOverloads constructor(
         if (state == SCROLL_STATE_IDLE) {
             currentPosition = visibleCenterItemPosition()
         }
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        try {
+            soundPool.release()
+        } catch (_: Exception) {}
     }
 
     fun refreshCurrentPosition() {

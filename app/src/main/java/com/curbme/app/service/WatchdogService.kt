@@ -9,6 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.database.ContentObserver
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
 import android.os.*
 import android.provider.Settings
 import android.util.Log
@@ -18,9 +21,12 @@ import com.curbme.app.core.utils.AlarmScheduler
 import com.curbme.app.core.utils.Constants
 import com.curbme.app.core.utils.NtpFetcher
 import com.curbme.app.data.local.prefs.DataStoreManager
+import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.data.local.prefs.Settings as MonkSettings
 import com.curbme.app.service.accessibility.AllowlistManager
 import com.curbme.app.service.monitor.*
+import com.curbme.app.service.notification.NotificationHelper
+import com.curbme.app.service.overlay.FocusSessionManager
 import com.curbme.app.service.overlay.SettingsBlockOverlayService
 import com.curbme.app.service.vpn.DnsVpnService
 import com.curbme.app.ui.block.BlockedPageActivity
@@ -51,10 +57,10 @@ class WatchdogService : Service() {
     private val settingsHandler = Handler(Looper.getMainLooper())
     private val protectionHandler = Handler(Looper.getMainLooper())
 
-    private var privateDnsObserver: com.curbme.app.service.monitor.PrivateDnsObserver? = null
+    private var privateDnsObserver: PrivateDnsObserver? = null
 
-    private var connectivityManager: android.net.ConnectivityManager? = null
-    private var networkCallback: android.net.ConnectivityManager.NetworkCallback? = null
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
 
 
@@ -69,13 +75,13 @@ class WatchdogService : Service() {
             }
         }
 
-        privateDnsObserver = com.curbme.app.service.monitor.PrivateDnsObserver(this)
+        privateDnsObserver = PrivateDnsObserver(this)
         privateDnsObserver?.register()
 
-        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        connectivityManager = getSystemService(CONNECTIVITY_SERVICE) as? ConnectivityManager
 
-        networkCallback = object : android.net.ConnectivityManager.NetworkCallback() {
-            override fun onLinkPropertiesChanged(network: android.net.Network, linkProperties: android.net.LinkProperties) {
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
                 super.onLinkPropertiesChanged(network, linkProperties)
                 // Called by Android OS instantly when network DNS or link properties change!
                 DevicePolicyHelper.reapplyPolicyIfMismatched(this@WatchdogService)
@@ -117,7 +123,7 @@ class WatchdogService : Service() {
 
         // SettingsPageReader might need update to use MonkSettings or I'll just pass prefs for now if it still uses it
         // Actually, I'll update SettingsPageReader too later if needed.
-        settingsPageReader = SettingsPageReader(com.curbme.app.data.local.prefs.PrefsManager(this))
+        settingsPageReader = SettingsPageReader(PrefsManager(this))
         protectionMonitor = ProtectionStateMonitor(this)
     }
 
@@ -136,6 +142,9 @@ class WatchdogService : Service() {
         startAppBlockEngine(this)
         scheduleJobBackup(this)
         AlarmScheduler.scheduleRepeating(this)
+        
+        // Auto-resume active Focus session if present
+        FocusSessionManager.checkAndResumeActiveSession(this, "WatchdogService.onStartCommand")
 
         return START_STICKY
     }
@@ -176,6 +185,7 @@ class WatchdogService : Service() {
         AllowlistManager.getInstance().pruneExpired()
         startAppBlockEngine(this)
         AccessibilitySelfHealer.healIfNeeded(this)
+        FocusSessionManager.checkAndResumeActiveSession(this, "WatchdogService.healthCheck")
 
         if (settings.isSafeSearchEnabled && !DnsVpnService.isServiceRunning) {
             try {
@@ -284,7 +294,7 @@ class WatchdogService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        return com.curbme.app.service.notification.NotificationHelper.buildGuardianForegroundNotification(this)
+        return NotificationHelper.buildGuardianForegroundNotification(this)
     }
 
     companion object {
@@ -314,7 +324,7 @@ class WatchdogService : Service() {
         }
 
         fun scheduleJobBackup(context: Context) {
-            val js = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+            val js = context.getSystemService(JOB_SCHEDULER_SERVICE) as JobScheduler
             if (js.getPendingJob(42) != null) return
 
             val job = JobInfo.Builder(42, ComponentName(context, WatchdogJobService::class.java))

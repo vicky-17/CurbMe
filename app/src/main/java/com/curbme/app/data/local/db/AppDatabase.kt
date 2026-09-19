@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room.databaseBuilder
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.curbme.app.data.local.db.dao.AppBlockDao
 import com.curbme.app.data.local.db.dao.AppGroupDao
 import com.curbme.app.data.local.db.dao.AppUsageDao
@@ -18,7 +20,9 @@ import com.curbme.app.data.local.db.entity.ReelStatsEntity
 import com.curbme.app.data.local.db.entity.ReelUsageStatsEntity
 import com.curbme.app.data.local.db.entity.UsageLogEntity
 import com.curbme.app.data.local.db.dao.AdultDomainDao
+import com.curbme.app.data.local.db.dao.FocusSessionDao
 import com.curbme.app.data.local.db.entity.AdultDomainEntity
+import com.curbme.app.data.local.db.entity.FocusSessionEntity
 import com.curbme.app.data.local.db.entity.WebsiteStatsEntity
 import com.curbme.app.service.vpn.heartbeat.VpnHeartBeatDao
 import com.curbme.app.service.vpn.heartbeat.VpnHeartBeatEntity
@@ -38,9 +42,10 @@ import kotlin.concurrent.Volatile
         ReelUsageStatsEntity::class,
         WebsiteStatsEntity::class,
         AppGroupEntity::class,
-        AdultDomainEntity::class
+        AdultDomainEntity::class,
+        FocusSessionEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -53,10 +58,29 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun websiteStatsDao(): WebsiteStatsDao
     abstract fun appGroupDao(): AppGroupDao
     abstract fun adultDomainDao(): AdultDomainDao
+    abstract fun focusSessionDao(): FocusSessionDao
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `focus_sessions` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`status` TEXT NOT NULL, " +
+                    "`totalDurationSeconds` INTEGER NOT NULL, " +
+                    "`startTimeMs` INTEGER NOT NULL, " +
+                    "`plannedEndTimeMs` INTEGER NOT NULL, " +
+                    "`elapsedTimeMs` INTEGER NOT NULL, " +
+                    "`lastUpdatedTimeMs` INTEGER NOT NULL, " +
+                    "`bootCount` INTEGER NOT NULL, " +
+                    "`startElapsedRealtimeMs` INTEGER NOT NULL, " +
+                    "`allowedPackageNames` TEXT)"
+                )
+            }
+        }
 
         /**
          * Standard Singleton pattern to provide access to the database.
@@ -68,6 +92,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "app_database",
                 )
+                    .addMigrations(MIGRATION_10_11)
                     .enableMultiInstanceInvalidation()
                     .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
                     .fallbackToDestructiveMigration(dropAllTables = true)

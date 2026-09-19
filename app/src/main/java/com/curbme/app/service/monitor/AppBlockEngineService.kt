@@ -77,7 +77,7 @@ class AppBlockEngineService : Service() {
             }
         }
 
-        // 2. Periodic enforcement tick: Re-checks time limits / countdowns while parked in one app
+        // 2. Periodic enforcement tick.wav: Re-checks time limits / countdowns while parked in one app
         serviceScope.launch {
             while (isActive) {
                 delay(5000)
@@ -87,7 +87,7 @@ class AppBlockEngineService : Service() {
                         checkForegroundApp(app)
                     }
                 } catch (e: Exception) {
-                    Log.e("AppBlockEngine", "Error in periodic enforcement tick", e)
+                    Log.e("AppBlockEngine", "Error in periodic enforcement tick.wav", e)
                 }
             }
         }

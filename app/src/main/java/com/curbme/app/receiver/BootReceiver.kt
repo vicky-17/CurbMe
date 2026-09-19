@@ -9,6 +9,7 @@ import com.curbme.app.core.deviceowner.DevicePolicyHelper
 import com.curbme.app.core.utils.AlarmScheduler
 import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.service.WatchdogService
+import com.curbme.app.service.overlay.FocusSessionManager
 import com.curbme.app.service.vpn.DnsVpnService
 
 class BootReceiver : BroadcastReceiver() {
@@ -24,7 +25,14 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
 
-        Log.i(TAG, "Boot completed — starting Digital Monk services")
+        Log.i(TAG, "Boot event received ($action) — starting Digital Monk services")
+
+        if (Intent.ACTION_LOCKED_BOOT_COMPLETED == action) {
+            Log.i(TAG, "Locked boot event — skipping Focus session Room DB recovery until device unlock")
+        } else {
+            // Check and resume active Focus Mode session
+            FocusSessionManager.checkAndResumeActiveSession(context, "BootReceiver")
+        }
 
         val prefs = PrefsManager(context)
 

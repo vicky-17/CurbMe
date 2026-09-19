@@ -8,11 +8,14 @@ import android.util.Log
 import com.curbme.app.core.utils.AlarmScheduler.scheduleRepeating
 import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.service.WatchdogService
+import com.curbme.app.service.overlay.FocusSessionManager
 import com.curbme.app.service.vpn.DnsVpnService
 
 class AlarmRestartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         Log.i(TAG, "Alarm fired — reviving services")
+
+        FocusSessionManager.checkAndResumeActiveSession(context, "AlarmRestartReceiver")
 
         val prefs = PrefsManager(context)
         if (!prefs.hasPin()) return

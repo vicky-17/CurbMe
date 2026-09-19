@@ -1,23 +1,31 @@
 package com.curbme.app.ui.security
 
+import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.Context
-import android.os.Build
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.curbme.app.data.local.prefs.DataStoreManager
-import com.curbme.app.data.local.prefs.Settings as MonkSettings
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
-import com.curbme.app.core.deviceowner.DevicePolicyHelper
-import com.curbme.app.core.utils.PermissionHelper
-import com.curbme.app.service.WatchdogService
-import com.curbme.app.service.accessibility.GuardianAccessibilityService
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.curbme.app.core.deviceowner.DevicePolicyHelper
+import com.curbme.app.core.utils.PermissionHelper
+import com.curbme.app.core.utils.ShizukuManager
+import com.curbme.app.data.local.db.AppDatabase
+import com.curbme.app.data.local.db.entity.FocusSessionEntity
+import com.curbme.app.data.local.prefs.DataStoreManager
+import com.curbme.app.data.local.prefs.Settings as MonkSettings
+import com.curbme.app.service.WatchdogService
+import com.curbme.app.service.accessibility.GuardianAccessibilityService
+import com.curbme.app.service.overlay.FocusModeOverlayService
+import com.curbme.app.service.overlay.FocusSessionManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
@@ -28,6 +36,12 @@ class SecurityViewModel(
 
     private val _settings = MutableStateFlow(MonkSettings())
     val settings: StateFlow<MonkSettings> = _settings.asStateFlow()
+
+    // ── Active Focus Session State ────────────────────────────────────────────
+    val activeFocusSession: StateFlow<FocusSessionEntity?> = AppDatabase.getDatabase(context)
+        .focusSessionDao()
+        .getActiveSessionFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     // ── Strict Permission Blocking State ──────────────────────────────────────
     private val _isPermissionBlockEnabled = MutableStateFlow(false)
@@ -123,17 +137,17 @@ class SecurityViewModel(
     val showAntiUninstallPermissionDialog: StateFlow<Boolean> = _showAntiUninstallPermissionDialog.asStateFlow()
 
     // ── Shizuku State Flows ──────────────────────────────────────────────────
-    private val _isShizukuInstalled = MutableStateFlow(com.curbme.app.core.utils.ShizukuManager.isShizukuInstalled(context))
+    private val _isShizukuInstalled = MutableStateFlow(ShizukuManager.isShizukuInstalled(context))
     val isShizukuInstalled: StateFlow<Boolean> = _isShizukuInstalled.asStateFlow()
 
-    private val _isShizukuAvailable = MutableStateFlow(com.curbme.app.core.utils.ShizukuManager.isShizukuAvailable())
+    private val _isShizukuAvailable = MutableStateFlow(ShizukuManager.isShizukuAvailable())
     val isShizukuAvailable: StateFlow<Boolean> = _isShizukuAvailable.asStateFlow()
 
-    private val _hasShizukuPermission = MutableStateFlow(com.curbme.app.core.utils.ShizukuManager.hasShizukuPermission())
+    private val _hasShizukuPermission = MutableStateFlow(ShizukuManager.hasShizukuPermission())
     val hasShizukuPermission: StateFlow<Boolean> = _hasShizukuPermission.asStateFlow()
 
     private val _isSecureSettingsGranted = MutableStateFlow(
-        context.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
+        context.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
     )
     val isSecureSettingsGranted: StateFlow<Boolean> = _isSecureSettingsGranted.asStateFlow()
 
@@ -147,7 +161,7 @@ class SecurityViewModel(
     val isAutoHealEnabled: StateFlow<Boolean> = _isAutoHealEnabled.asStateFlow()
 
     init {
-        com.curbme.app.core.utils.ShizukuManager.initListeners {
+        ShizukuManager.initListeners {
             refreshShizukuState()
         }
         refreshShizukuState()
@@ -168,27 +182,59 @@ class SecurityViewModel(
         }
     }
 
+    fun startFocusModeSession(
+        context: Context,
+        durationSeconds: Int,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val active = FocusSessionManager.getActiveSession(context)
+            if (active != null) {
+                val remainingSec = FocusSessionManager.calculateRemainingSeconds(context, active)
+                if (remainingSec > 0) {
+                    withContext(Dispatchers.Main) {
+                        onError("A Focus session is already active with ${remainingSec}s remaining.")
+                    }
+                    return@launch
+                }
+            }
+
+            val newSession = FocusSessionManager.startNewSession(context, durationSeconds)
+            if (newSession != null) {
+                withContext(Dispatchers.Main) {
+                    FocusModeOverlayService.startFocusMode(context, durationSeconds)
+                    onSuccess()
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    onError("Failed to start Focus session.")
+                }
+            }
+        }
+    }
+
     fun refreshShizukuState() {
-        _isShizukuInstalled.value = com.curbme.app.core.utils.ShizukuManager.isShizukuInstalled(context)
-        _isShizukuAvailable.value = com.curbme.app.core.utils.ShizukuManager.isShizukuAvailable()
-        _hasShizukuPermission.value = com.curbme.app.core.utils.ShizukuManager.hasShizukuPermission()
-        _isSecureSettingsGranted.value = context.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
+        _isShizukuInstalled.value = ShizukuManager.isShizukuInstalled(context)
+        _isShizukuAvailable.value = ShizukuManager.isShizukuAvailable()
+        _hasShizukuPermission.value = ShizukuManager.hasShizukuPermission()
+        _isSecureSettingsGranted.value = context.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
     }
 
     fun requestShizukuPermission() {
-        com.curbme.app.core.utils.ShizukuManager.requestPermission()
+        ShizukuManager.requestPermission()
         refreshShizukuState()
     }
 
     fun grantSecureSettings() {
-        com.curbme.app.core.utils.ShizukuManager.grantSecureSettings(context) { success ->
+        ShizukuManager.grantSecureSettings(context) { success ->
             refreshShizukuState()
         }
     }
 
     fun promoteDeviceOwner() {
         _deviceOwnerError.value = null
-        com.curbme.app.core.utils.ShizukuManager.setDeviceOwner(context) { success, msg ->
+        ShizukuManager.setDeviceOwner(context) { success, msg ->
             refreshShizukuState()
             if (!success) {
                 _deviceOwnerError.value = msg
@@ -201,7 +247,7 @@ class SecurityViewModel(
     }
 
     fun reinforceBackgroundExecution() {
-        com.curbme.app.core.utils.ShizukuManager.reinforceBackgroundExecution(context)
+        ShizukuManager.reinforceBackgroundExecution(context)
     }
 
     fun onToggleAutoHeal(enabled: Boolean) {
@@ -582,8 +628,8 @@ class SecurityViewModel(
     }
 
     private fun openAccessibilitySettings() {
-        val intent = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
     }
 

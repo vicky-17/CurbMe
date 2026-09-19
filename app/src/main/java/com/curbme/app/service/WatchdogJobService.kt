@@ -3,6 +3,7 @@ package com.curbme.app.service
 import android.app.job.JobParameters
 import android.app.job.JobService
 import android.util.Log
+import com.curbme.app.service.overlay.FocusSessionManager
 
 /**
  * Why we made this file:
@@ -29,7 +30,8 @@ class WatchdogJobService : JobService() {
         try {
             // We call the static start method of your WatchdogService.
             // This ensures that the core background monitor is always running.
-            WatchdogService.start(getApplicationContext())
+            WatchdogService.start(applicationContext)
+            FocusSessionManager.checkAndResumeActiveSession(applicationContext, "WatchdogJobService")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to restart services from job", e)
         }

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.curbme.app.data.local.prefs.PrefsManager
+import com.curbme.app.service.overlay.FocusSessionManager
 import com.curbme.app.service.vpn.DnsVpnService
 import com.curbme.app.service.vpn.heartbeat.VpnHeartbeatMonitorWorker
 
@@ -29,7 +30,9 @@ class AppUpdateReceiver : BroadcastReceiver() {
             return
         }
 
-        Log.i(TAG, "App updated — checking if VPN needs restart")
+        Log.i(TAG, "App updated — checking if VPN and Focus overlay need restart")
+
+        FocusSessionManager.checkAndResumeActiveSession(context, "AppUpdateReceiver")
 
         val prefs = PrefsManager(context)
 
@@ -39,7 +42,6 @@ class AppUpdateReceiver : BroadcastReceiver() {
         }
 
         // Re-schedule WorkManager watchdog regardless (it gets cancelled on update)
-        // Note: Make sure isSafeSearchEnabled() exists in your PrefsManager.java
         if (prefs.isSafeSearchEnabled && prefs.isKeepVpnAlive) {
             VpnHeartbeatMonitorWorker.schedule(context)
         }

@@ -41,10 +41,12 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.curbme.app.core.utils.MonochromeHelper
+import com.curbme.app.core.utils.NtpFetcher
 import com.curbme.app.core.utils.OemAutostartHelper
 import com.curbme.app.data.local.prefs.DataStoreManager
 import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.service.overlay.FocusModeOverlayService
+import com.curbme.app.service.overlay.FocusSessionManager
 import com.curbme.app.ui.components.cards.ActionCard
 import com.curbme.app.ui.components.cards.AdvancedProtectionCard
 import com.curbme.app.ui.components.cards.DnsProtectionCard
@@ -55,7 +57,6 @@ import com.curbme.app.ui.components.dialogs.DeviceOwnerAccountErrorDialog
 import com.curbme.app.ui.components.dialogs.DeviceOwnerConfirmDialog
 import com.curbme.app.ui.components.dialogs.DeviceOwnerRequiredDialog
 import com.curbme.app.ui.components.dialogs.FocusTimePickerDialog
-import com.curbme.app.ui.components.dialogs.FocusTimePickerDialog
 import com.curbme.app.ui.components.dialogs.LockSettingsDialog
 import com.curbme.app.ui.components.dialogs.PinGateDialog
 import com.curbme.app.ui.components.dialogs.PreventVpnOverrideDialog
@@ -64,6 +65,7 @@ import com.curbme.app.ui.components.dialogs.VpnKeepAliveDialog
 import com.curbme.app.ui.sidebar.formatRemainingTime
 import com.curbme.app.ui.theme.CurbMeTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -75,6 +77,7 @@ fun SecurityScreen(prefs: PrefsManager) {
     val scope = rememberCoroutineScope()
     
     val settings by viewModel.settings.collectAsState()
+    val activeFocusSession by viewModel.activeFocusSession.collectAsState()
 
     val isPermissionBlockEnabled by viewModel.isPermissionBlockEnabled.collectAsState()
     val showConfirmDialog by viewModel.showConfirmDialog.collectAsState()
@@ -319,30 +322,62 @@ fun SecurityScreen(prefs: PrefsManager) {
 
             SectionLabel("FOCUS & MINDFUL PAUSE")
 
-            ActionCard(
-                title = "Focus Mode (Mindful Pause)",
-                description = "Locks the entire screen (covering status bar, buttons, and navigation bar) for a mindful pause.",
-                icon = Icons.Rounded.Security,
-                onClick = {
-                    if (!Settings.canDrawOverlays(context)) {
-                        val intent = Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:${context.packageName}")
-                        )
-                        context.startActivity(intent)
-                        Toast.makeText(context, "Please grant Overlay permission to use Focus Mode.", Toast.LENGTH_LONG).show()
-                    } else {
-                        showFocusTimePickerDialog = true
-                    }
+            var remainingFocusSec by remember { mutableIntStateOf(0) }
+            LaunchedEffect(activeFocusSession) {
+                while (activeFocusSession != null) {
+                    val sec = activeFocusSession?.let { FocusSessionManager.calculateRemainingSeconds(context, it) } ?: 0
+                    remainingFocusSec = sec
+                    if (sec <= 0) break
+                    delay(1000L)
                 }
-            )
+            }
+
+            val isFocusActive = activeFocusSession != null && remainingFocusSec > 0
+
+            if (isFocusActive) {
+                ActionCard(
+                    title = "Focus Mode (Active — ${formatRemainingTime(remainingFocusSec * 1000L)})",
+                    description = "Focus session is active. Tap to re-open Focus Overlay.",
+                    icon = Icons.Rounded.Security,
+                    onClick = {
+                        if (!Settings.canDrawOverlays(context)) {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                            context.startActivity(intent)
+                            Toast.makeText(context, "Please grant Overlay permission to view Focus Mode.", Toast.LENGTH_LONG).show()
+                        } else {
+                            FocusModeOverlayService.startFocusMode(context, remainingFocusSec)
+                        }
+                    }
+                )
+            } else {
+                ActionCard(
+                    title = "Focus Mode (Mindful Pause)",
+                    description = "Locks the entire screen (covering status bar, buttons, and navigation bar) for a mindful pause.",
+                    icon = Icons.Rounded.Security,
+                    onClick = {
+                        if (!Settings.canDrawOverlays(context)) {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                            context.startActivity(intent)
+                            Toast.makeText(context, "Please grant Overlay permission to use Focus Mode.", Toast.LENGTH_LONG).show()
+                        } else {
+                            showFocusTimePickerDialog = true
+                        }
+                    }
+                )
+            }
 
             Spacer(Modifier.height(24.dp))
 
             ActionCard(
                 title = "App Uninstall Protection",
                 description = "Choose apps that cannot be uninstalled from this device.",
-                icon = androidx.compose.material.icons.Icons.Rounded.Security,
+                icon = Icons.Rounded.Security,
                 onClick = { viewModel.onOpenAppListRequested() }
             )
 
@@ -365,7 +400,7 @@ fun SecurityScreen(prefs: PrefsManager) {
                 ActionCard(
                     title = if (isBankingBypassEnabled) "Finish Banking Mode" else "Banking Mode (Temp Bypass)",
                     description = if (isBankingBypassEnabled) "Tap to finish and re-enable Accessibility permission." else "One-tap turn OFF accessibility to use one banking app.",
-                    icon = androidx.compose.material.icons.Icons.Rounded.Security,
+                    icon = Icons.Rounded.Security,
                     onClick = { viewModel.onBankingBypassToggleRequested(!isBankingBypassEnabled) }
                 )
                 
@@ -510,7 +545,7 @@ fun SecurityScreen(prefs: PrefsManager) {
                     showDnsLockDialog = false
 
                     scope.launch(Dispatchers.IO) {
-                        val ntpTime = com.curbme.app.core.utils.NtpFetcher.fetchNtpTime()
+                        val ntpTime = NtpFetcher.fetchNtpTime()
                         if (ntpTime > 0) {
                             val offset = ntpTime - System.currentTimeMillis()
                             dataStoreManager.updateSettings {
@@ -550,7 +585,7 @@ fun SecurityScreen(prefs: PrefsManager) {
                                         Text(hostname, fontSize = 14.sp, modifier = Modifier.weight(1f))
                                         if (!viewModel.isDefaultHostname(hostname)) {
                                             IconButton(onClick = { viewModel.deleteHostname(hostname) }, modifier = Modifier.size(32.dp)) {
-                                                Icon(imageVector = androidx.compose.material.icons.Icons.Rounded.Delete, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
+                                                Icon(imageVector = Icons.Rounded.Delete, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
                                             }
                                         }
                                     }
@@ -660,7 +695,16 @@ fun SecurityScreen(prefs: PrefsManager) {
                 onDurationSelected = { hours, minutes ->
                     showFocusTimePickerDialog = false
                     val seconds = (hours * 3600) + (minutes * 60)
-                    FocusModeOverlayService.startFocusMode(context, seconds)
+                    viewModel.startFocusModeSession(
+                        context = context,
+                        durationSeconds = seconds,
+                        onSuccess = {
+                            Toast.makeText(context, "Focus Mode started.", Toast.LENGTH_SHORT).show()
+                        },
+                        onError = { errorMsg ->
+                            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+                        }
+                    )
                 }
             )
         }
@@ -687,7 +731,7 @@ private fun BankingAppPickerDialog(
                     if (isLoading) {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color(0xFF3B82F6))
                     } else {
-                        androidx.compose.foundation.lazy.LazyColumn {
+                        LazyColumn {
                             items(apps.size) { index ->
                                 val app = apps[index]
                                 Row(modifier = Modifier.fillMaxWidth().clickable { onAppSelected(app.packageName) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -725,7 +769,7 @@ private fun AppUninstallProtectionDialog(viewModel: SecurityViewModel, prefs: Pr
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Uninstall Protection", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 IconButton(onClick = { showLockDialog = true }) {
-                    Icon(imageVector = androidx.compose.material.icons.Icons.Rounded.Lock, contentDescription = null, tint = if (settings.isSettingsLocked) Color(0xFF3B82F6) else Color.White)
+                    Icon(imageVector = Icons.Rounded.Lock, contentDescription = null, tint = if (settings.isSettingsLocked) Color(0xFF3B82F6) else Color.White)
                 }
             }
         },
@@ -739,7 +783,7 @@ private fun AppUninstallProtectionDialog(viewModel: SecurityViewModel, prefs: Pr
                     if (isLoading) {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color(0xFF3B82F6))
                     } else {
-                        androidx.compose.foundation.lazy.LazyColumn {
+                        LazyColumn {
                             items(apps.size) { index ->
                                 val app = apps[index]
                                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {

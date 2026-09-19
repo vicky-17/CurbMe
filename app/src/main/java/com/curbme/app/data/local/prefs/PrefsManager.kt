@@ -62,8 +62,8 @@ class PrefsManager(context: Context) {
     val blockedPackages: MutableSet<String?>
         // ── App Blocking ──────────────────────────────────────────────────────────
         get() = prefs.getStringSet(
-            PrefsManager.Companion.KEY_BLOCKED_PACKAGES,
-            java.util.HashSet<kotlin.String?>()
+            KEY_BLOCKED_PACKAGES,
+            java.util.HashSet<String?>()
         )!!
 
     fun saveBlockedPackages(packages: MutableSet<String?>?) {
@@ -214,6 +214,12 @@ class PrefsManager(context: Context) {
         get() = prefs.getLong(KEY_LOCK_UNTIL_TIMESTAMP, 0L)
         set(epochMs) {
             prefs.edit { putLong(KEY_LOCK_UNTIL_TIMESTAMP, epochMs) }
+        }
+
+    var focusNtpOffset: Long
+        get() = prefs.getLong(KEY_FOCUS_NTP_OFFSET, 0L)
+        set(value) {
+            prefs.edit { putLong(KEY_FOCUS_NTP_OFFSET, value) }
         }
 
 
@@ -409,6 +415,7 @@ class PrefsManager(context: Context) {
         private const val KEY_USER_EMAIL = "user_email"
 
         private const val KEY_LOCK_UNTIL_TIMESTAMP = "lock_until_timestamp"
+        private const val KEY_FOCUS_NTP_OFFSET = "focus_ntp_offset"
 
 
         private const val KEY_LOCK_DURATION_MS = "lock_duration_ms"

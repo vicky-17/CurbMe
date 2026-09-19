@@ -3,12 +3,14 @@ package com.curbme.app
 import android.app.ActivityManager
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import android.os.Process
 import android.util.Log
 import com.curbme.app.core.utils.AlarmScheduler.scheduleRepeating
 import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.service.WatchdogService
 import com.curbme.app.service.notification.NotificationChannels.createAll
+import com.curbme.app.service.overlay.FocusSessionManager
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.crashlytics.FirebaseCrashlytics
@@ -52,6 +54,9 @@ class CurbMeApp : Application() {
             // Give Crashlytics a moment to save the report
             defaultHandler?.uncaughtException(thread, throwable)
         }
+
+        // Check for active Focus Session and resume overlay if remaining > 0
+        FocusSessionManager.checkAndResumeActiveSession(this, "CurbMeApp.onCreate")
 
         if (isMainProcess(this)) {
             Log.i(TAG, "Main process initialized. Setting up UI-related components.")
@@ -99,10 +104,10 @@ class CurbMeApp : Application() {
         }
 
         private fun getCurrentProcessName(context: Context): String? {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                return Application.getProcessName()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                return getProcessName()
             }
-            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val am = context.getSystemService(ACTIVITY_SERVICE) as ActivityManager
             val processes = am.runningAppProcesses
             if (processes != null) {
                 for (process in processes) {
