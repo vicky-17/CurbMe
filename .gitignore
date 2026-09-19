@@ -21,6 +21,7 @@ captures/
 bin/
 gen/
 out/
+*kotlin/
 
 # --- Security (CRITICAL) ---
 # Never upload your signing keys or API secrets

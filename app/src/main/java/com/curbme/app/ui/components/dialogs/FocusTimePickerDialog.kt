@@ -1,51 +1,61 @@
 package com.curbme.app.ui.components.dialogs
 
-import android.view.HapticFeedbackConstants
-import android.view.SoundEffectConstants
-import androidx.compose.foundation.ExperimentalFoundationApi
+import android.graphics.Typeface
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.recyclerview.widget.RecyclerView
+import com.curbme.app.ui.components.picker.WheelPickerRecyclerView
 import com.curbme.app.ui.theme.CurbMeTheme
-import kotlin.math.PI
-import kotlin.math.abs
-import kotlin.math.sin
 
-// Dimensions matching WheelPicker specifications (dimens.xml & picker_action_sheet_content.xml)
-private val WHEEL_ITEM_HEIGHT: Dp = 36.dp
-private val WHEEL_PICKER_HEIGHT: Dp = 216.dp // 6 visible item slots height
-private val WHEEL_HIGHLIGHT_RADIUS: Dp = 8.dp
-private val ACTION_SHEET_BG_RADIUS: Dp = 16.dp
+private val AccentStart = Color(0xFF7C4DFF)
+private val AccentEnd = Color(0xFF00B0FF)
 
 @Composable
 fun FocusTimePickerDialog(
     onDismissRequest: () -> Unit,
     onDurationSelected: (hours: Int, minutes: Int) -> Unit,
     initialHours: Int = 0,
-    initialMinutes: Int = 15
+    initialMinutes: Int = 15,
+    minimumDuration: Long = 60L,
+    maximumDuration: Long = 24L * 60 * 60
 ) {
     Dialog(onDismissRequest = onDismissRequest) {
         FocusTimePickerDialogContent(
             onDismissRequest = onDismissRequest,
             onDurationSelected = onDurationSelected,
             initialHours = initialHours,
-            initialMinutes = initialMinutes
+            initialMinutes = initialMinutes,
+            minimumDuration = minimumDuration,
+            maximumDuration = maximumDuration
         )
     }
 }
@@ -55,264 +65,371 @@ fun FocusTimePickerDialogContent(
     onDismissRequest: () -> Unit,
     onDurationSelected: (hours: Int, minutes: Int) -> Unit,
     initialHours: Int = 0,
-    initialMinutes: Int = 15
+    initialMinutes: Int = 15,
+    minimumDuration: Long = 60L,
+    maximumDuration: Long = 24L * 60 * 60
 ) {
-    var selectedHours by remember { mutableIntStateOf(initialHours) }
-    var selectedMinutes by remember { mutableIntStateOf(initialMinutes) }
+    var hours by remember { mutableIntStateOf(initialHours.coerceIn(0, 23)) }
+    var minutes by remember { mutableIntStateOf(initialMinutes.coerceIn(0, 59)) }
+
+    val hourItems = remember { (0..23).map { it.toString().padStart(2, '0') } }
+    val minuteItems = remember { (0..59).map { it.toString().padStart(2, '0') } }
+
+    val totalSeconds = (hours * 3600L + minutes * 60L).coerceIn(minimumDuration, maximumDuration)
+    val displayHours = (totalSeconds / 3600).toInt()
+    val displayMinutes = ((totalSeconds % 3600) / 60).toInt()
+    val progress = (totalSeconds.toFloat() / maximumDuration).coerceIn(0f, 1f)
 
     Surface(
-        shape = RoundedCornerShape(ACTION_SHEET_BG_RADIUS),
+        shape = RoundedCornerShape(32.dp),
         color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.widthIn(max = 340.dp)
+        tonalElevation = 6.dp,
+        modifier = Modifier.widthIn(max = 360.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Set Focus Duration",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-            val hoursText = if (selectedHours > 0) "$selectedHours hrs" else ""
-            val minsText = if (selectedMinutes > 0) "$selectedMinutes mins" else ""
-            val combinedText = listOf(hoursText, minsText).filter { it.isNotEmpty() }.joinToString(" and ")
-
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = if (combinedText.isNotEmpty()) "Screen will be blocked for $combinedText" else "Select a duration",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Outer Wheel Container with Center Highlight View (matching WheelPicker layout)
+            // ---------- Hero header with graphic ----------
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(WHEEL_PICKER_HEIGHT),
+                    .background(
+                        Brush.linearGradient(
+                            listOf(AccentStart.copy(alpha = 0.95f), AccentEnd.copy(alpha = 0.9f))
+                        )
+                    )
+                    .padding(top = 24.dp, bottom = 20.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Highlight Strip (text_wheel_highlight_bg.xml)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(WHEEL_ITEM_HEIGHT)
-                        .background(
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(WHEEL_HIGHLIGHT_RADIUS)
-                        )
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Hours Picker Wheel
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularDurationWheel(
-                            range = 0..23,
-                            initialValue = initialHours,
-                            label = "hrs",
-                            onValueChange = { selectedHours = it }
-                        )
-                    }
-
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    FocusRing(progress = progress, hours = displayHours, minutes = displayMinutes)
+                    Spacer(Modifier.height(12.dp))
                     Text(
-                        text = ":",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(horizontal = 4.dp)
+                        text = "Focus Mode",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
                     )
-
-                    // Minutes Picker Wheel
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularDurationWheel(
-                            range = 0..59,
-                            initialValue = initialMinutes,
-                            label = "mins",
-                            onValueChange = { selectedMinutes = it }
-                        )
-                    }
+                    Text(
+                        text = "Screen will be locked until the timer ends",
+                        color = Color.White.copy(alpha = 0.85f),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                TextButton(onClick = onDismissRequest) {
-                    Text("Cancel", color = MaterialTheme.colorScheme.outline)
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(
-                    onClick = {
-                        onDurationSelected(selectedHours, selectedMinutes)
-                        onDismissRequest()
-                    }
+                // ---------- Quick presets ----------
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "Start Focus",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                    listOf(
+                        "15m" to (0 to 15),
+                        "30m" to (0 to 30),
+                        "1h" to (1 to 0),
+                        "2h" to (2 to 0)
+                    ).forEach { (label, hm) ->
+                        val selected = displayHours == hm.first && displayMinutes == hm.second
+                        PresetChip(
+                            label = label,
+                            selected = selected,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            hours = hm.first
+                            minutes = hm.second
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ---------- Wheels ----------
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Selection highlight
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        AccentStart.copy(alpha = 0.22f),
+                                        AccentEnd.copy(alpha = 0.22f)
+                                    )
+                                )
+                            )
                     )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        WheelColumn(
+                            items = hourItems,
+                            index = hours,
+                            unit = "hrs",
+                            onItemSelected = { hours = it },
+                            modifier = Modifier.weight(1f)
+                        )
+                        WheelColumn(
+                            items = minuteItems,
+                            index = minutes,
+                            unit = "mins",
+                            onItemSelected = { minutes = it },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    // Fade top & bottom for depth
+                    val surface = MaterialTheme.colorScheme.surface
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .background(Brush.verticalGradient(listOf(surface, Color.Transparent)))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .background(Brush.verticalGradient(listOf(Color.Transparent, surface)))
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // ---------- Actions ----------
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDismissRequest,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1.4f)
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Brush.horizontalGradient(listOf(AccentStart, AccentEnd)))
+                            .clickable {
+                                onDurationSelected(displayHours, displayMinutes)
+                                onDismissRequest()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Start Focus",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/** Animated circular graphic: glowing ring whose sweep reflects the chosen duration. */
 @Composable
-private fun CircularDurationWheel(
-    range: IntRange,
-    initialValue: Int,
+private fun FocusRing(progress: Float, hours: Int, minutes: Int) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceAtLeast(0.03f),
+        animationSpec = tween(400, easing = FastOutSlowInEasing),
+        label = "ringProgress"
+    )
+    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
+        initialValue = 0.15f,
+        targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Reverse),
+        label = "pulseAlpha"
+    )
+
+    Box(modifier = Modifier.size(132.dp), contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = 10.dp.toPx()
+            val inset = stroke / 2 + 6.dp.toPx()
+            val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
+
+            // soft pulsing glow
+            drawCircle(color = Color.White.copy(alpha = pulse), radius = size.minDimension / 2)
+            // track
+            drawArc(
+                color = Color.White.copy(alpha = 0.25f),
+                startAngle = -90f, sweepAngle = 360f, useCenter = false,
+                topLeft = Offset(inset, inset), size = arcSize,
+                style = Stroke(stroke, cap = StrokeCap.Round)
+            )
+            // progress
+            drawArc(
+                color = Color.White,
+                startAngle = -90f, sweepAngle = 360f * animatedProgress, useCenter = false,
+                topLeft = Offset(inset, inset), size = arcSize,
+                style = Stroke(stroke, cap = StrokeCap.Round)
+            )
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "%02d:%02d".format(hours, minutes),
+                color = Color.White,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = "hr : min",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 11.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun PresetChip(
     label: String,
-    onValueChange: (Int) -> Unit
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
-    val items = range.toList()
-    val halfPadding = (WHEEL_PICKER_HEIGHT - WHEEL_ITEM_HEIGHT) / 2
+    val bg = if (selected) AccentStart.copy(alpha = 0.16f)
+    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val fg = if (selected) AccentStart else MaterialTheme.colorScheme.onSurfaceVariant
 
-    val initialIndex = items.indexOf(initialValue).coerceIn(0, items.lastIndex)
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
-    val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
-
-    LaunchedEffect(initialValue) {
-        val targetIndex = items.indexOf(initialValue)
-        if (targetIndex >= 0 && listState.firstVisibleItemIndex != targetIndex) {
-            listState.scrollToItem(targetIndex)
-        }
+    Box(
+        modifier = modifier
+            .height(38.dp)
+            .clip(CircleShape)
+            .background(bg)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = fg, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
+}
 
-    val currentSnappedIndex by remember {
-        derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val center = layoutInfo.viewportSize.height / 2
-            var closestIndex = listState.firstVisibleItemIndex.coerceIn(0, items.lastIndex)
-            var closestDistance = Int.MAX_VALUE
-            for (itemInfo in layoutInfo.visibleItemsInfo) {
-                val itemCenter = itemInfo.offset + itemInfo.size / 2
-                val distance = abs(itemCenter - center)
-                if (distance < closestDistance) {
-                    closestDistance = distance
-                    closestIndex = itemInfo.index
-                }
-            }
-            closestIndex
-        }
-    }
-
-    val view = LocalView.current
-
-    LaunchedEffect(listState) {
-        snapshotFlow { currentSnappedIndex }.collect { index ->
-            val safeIndex = index.coerceIn(0, items.lastIndex)
-            onValueChange(items[safeIndex])
-            if (!view.isInEditMode) {
-                try {
-                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    view.playSoundEffect(SoundEffectConstants.CLICK)
-                } catch (_: Exception) {}
-            }
-        }
-    }
-
+@Composable
+private fun WheelColumn(
+    items: List<String>,
+    index: Int,
+    unit: String,
+    onItemSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
+        modifier = modifier.fillMaxHeight(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        LazyColumn(
-            state = listState,
-            flingBehavior = flingBehavior,
-            contentPadding = PaddingValues(vertical = halfPadding),
+        WheelPickerView(
+            items = items,
+            index = index,
+            onItemSelected = onItemSelected,
             modifier = Modifier
-                .width(64.dp)
-                .height(WHEEL_PICKER_HEIGHT),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            items(items.size) { index ->
-                val isSelected = currentSnappedIndex == index
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(WHEEL_ITEM_HEIGHT)
-                        .graphicsLayer {
-                            val layoutInfo = listState.layoutInfo
-                            val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
-                            if (itemInfo != null) {
-                                // Mathematical formulas directly from WheelPickerRecyclerView.kt drawChild
-                                val centerY = layoutInfo.viewportSize.height / 2f
-                                val childCenterY = itemInfo.offset + (itemInfo.size / 2f)
-                                val deltaY = centerY - childCenterY
-                                val factor = (deltaY / centerY).coerceIn(-1f, 1f)
-                                val absFactor = abs(factor)
-
-                                val alphaFactor = (1f - 0.7f * absFactor).coerceIn(0f, 1f)
-                                alpha = alphaFactor * alphaFactor * alphaFactor
-
-                                val scaleFactor = (1f - 0.3f * absFactor).coerceIn(0f, 1f)
-                                scaleX = scaleFactor
-                                scaleY = scaleFactor
-
-                                val rotateRadius = (2.0f * centerY / PI.toFloat())
-                                val rad = deltaY / rotateRadius
-                                val offsetY = deltaY - rotateRadius * sin(rad) * 1.3f
-                                translationY = offsetY
-
-                                rotationX = -rad * (180f / PI.toFloat())
-                                cameraDistance = 12f * density
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = items[index].toString().padStart(2, '0'),
-                        fontSize = 22.sp,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.width(4.dp))
-
+                .weight(1f)
+                .fillMaxHeight()
+        )
         Text(
-            text = label,
-            fontSize = 15.sp,
+            text = unit,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium
+            modifier = Modifier.padding(start = 2.dp, end = 6.dp)
         )
     }
+}
+
+@Composable
+private fun WheelPickerView(
+    items: List<String>,
+    index: Int,
+    onItemSelected: (index: Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val itemHeightPx = with(density) { 44.dp.roundToPx() }
+    val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
+
+    // Tracks what the wheel itself last reported, so presets can move it programmatically
+    val lastReported = remember { intArrayOf(index) }
+    val currentOnSelected by rememberUpdatedState(onItemSelected)
+
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            WheelPickerRecyclerView(context).apply {
+                adapter = TextWheelAdapter(items, itemHeightPx, textColor)
+                setWheelListener(object : WheelPickerRecyclerView.WheelPickerRecyclerViewListener {
+                    override fun didSelectItem(position: Int) {
+                        if (position in items.indices) {
+                            lastReported[0] = position
+                            currentOnSelected(position)
+                        }
+                    }
+                })
+                scrollToPosition(index)
+            }
+        },
+        update = { view ->
+            if (index != lastReported[0]) {
+                lastReported[0] = index
+                view.scrollToPosition(index)
+            }
+        }
+    )
+}
+
+private class TextWheelAdapter(
+    private val items: List<String>,
+    private val itemHeightPx: Int,
+    private val textColor: Int
+) : RecyclerView.Adapter<TextWheelAdapter.ViewHolder>() {
+
+    class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val textView = TextView(parent.context).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, itemHeightPx)
+            gravity = Gravity.CENTER
+            textSize = 22f
+            setTextColor(textColor)
+            setTypeface(typeface, Typeface.BOLD)
+        }
+        return ViewHolder(textView)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.textView.text = items[position]
+    }
+
+    override fun getItemCount(): Int = items.size
 }
 
 @Preview(name = "Focus Time Picker Dialog", showBackground = true, backgroundColor = 0xFF0F172A)

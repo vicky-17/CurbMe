@@ -145,6 +145,8 @@ dependencies {
     implementation("dev.rikka.shizuku:provider:13.1.5")
 
 
+    implementation(libs.androidx.recyclerview)
+
     // Add the dependencies for any other desired Firebase products
     // https://firebase.google.com/docs/android/setup#available-libraries
 

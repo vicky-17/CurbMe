@@ -35,6 +35,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.unit.sp
+import android.graphics.Typeface
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.recyclerview.widget.RecyclerView
+import com.curbme.app.ui.components.picker.WheelPickerRecyclerView
 import com.curbme.app.data.local.prefs.PrefsManager
 import com.curbme.app.data.local.db.AppDatabase // Add this
 import com.curbme.app.core.utils.AppIconManager
@@ -1303,52 +1312,39 @@ private fun Step3TimingMode(state: WizardState, viewModel: LocksViewModel) {
                                 // Day Counter on Right
                                 Box(
                                     modifier = Modifier
-                                        .width(50.dp) // Narrower for right side
-                                        .height(90.dp), // Tighter height to show 3 numbers
+                                        .width(90.dp) // Wider scroll region
+                                        .height(132.dp), // Height to fit 3 visible numbers cleanly
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (state.multiDayCount - 1).coerceAtLeast(0))
-                                    
-                                    val centerIndex by remember {
-                                        derivedStateOf {
-                                            val layoutInfo = listState.layoutInfo
-                                            val visibleItemsInfo = layoutInfo.visibleItemsInfo
-                                            if (visibleItemsInfo.isEmpty()) 0
-                                            else {
-                                                val center = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-                                                visibleItemsInfo.minByOrNull { 
-                                                    kotlin.math.abs((it.offset + it.size / 2) - center) 
-                                                }?.index ?: 0
+                                    val daysList = remember { (1..60).map { it.toString() } }
+                                    val initialIndex = (state.multiDayCount - 1).coerceIn(0, 59)
+                                    val density = LocalDensity.current
+                                    val itemHeightPx = with(density) { 44.dp.roundToPx() }
+                                    val textColor = AccentCyan.toArgb()
+
+                                    AndroidView(
+                                        modifier = Modifier.fillMaxSize(),
+                                        factory = { context ->
+                                            WheelPickerRecyclerView(context).apply {
+                                                adapter = DayWheelAdapter(
+                                                    items = daysList,
+                                                    itemHeightPx = itemHeightPx,
+                                                    textColor = textColor,
+                                                    textSizeSp = 28f
+                                                )
+                                                setWheelListener(object : WheelPickerRecyclerView.WheelPickerRecyclerViewListener {
+                                                    override fun didSelectItem(position: Int) {
+                                                        if (position in daysList.indices) {
+                                                            viewModel.updateWizard { it.copy(multiDayCount = position + 1) }
+                                                        }
+                                                    }
+                                                })
+                                                scrollToPosition(initialIndex)
                                             }
                                         }
-                                    }
-
-                                    LaunchedEffect(centerIndex) {
-                                        viewModel.updateWizard { it.copy(multiDayCount = centerIndex + 1) }
-                                    }
-
-                                    LazyColumn(
-                                        state = listState,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(vertical = 30.dp), // Adjusted for 3-item visibility
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
-                                    ) {
-                                        items(60) { index ->
-                                            val day = index + 1
-                                            val isCurrent = centerIndex == index
-                                            
-                                            Text(
-                                                text = day.toString(),
-                                                color = if (isCurrent) AccentCyan else TextPrimary.copy(alpha = 0.15f),
-                                                fontSize = if (isCurrent) 28.sp else 18.sp,
-                                                fontWeight = if (isCurrent) FontWeight.Black else FontWeight.Medium,
-                                                modifier = Modifier.padding(vertical = 1.dp) // Minimum padding
-                                            )
-                                        }
-                                    }
+                                    )
                                 }
-                                Spacer(Modifier.width(20.dp))
+                                Spacer(Modifier.width(16.dp))
                             }
                         }
                     }
@@ -2635,6 +2631,36 @@ private fun AddAppsToPlanDialog(
             }
         }
     }
+}
+
+private class DayWheelAdapter(
+    private val items: List<String>,
+    private val itemHeightPx: Int,
+    private val textColor: Int,
+    private val textSizeSp: Float = 28f
+) : RecyclerView.Adapter<DayWheelAdapter.ViewHolder>() {
+
+    class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val textView = TextView(parent.context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                itemHeightPx
+            )
+            gravity = Gravity.CENTER
+            textSize = textSizeSp
+            setTextColor(textColor)
+            setTypeface(typeface, Typeface.BOLD)
+        }
+        return ViewHolder(textView)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.textView.text = items[position]
+    }
+
+    override fun getItemCount(): Int = items.size
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFF080E1A)
