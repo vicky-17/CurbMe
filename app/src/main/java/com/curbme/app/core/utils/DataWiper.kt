@@ -21,6 +21,19 @@ object DataWiper {
      * Completely wipes all settings, databases, SharedPreferences, and cache, then exits the app process.
      */
     fun wipeAllDataAndExit(context: Context) {
+        val activeSession = runBlocking(Dispatchers.IO) {
+            try {
+                AppDatabase.getDatabase(context).focusSessionDao().getActiveSession()
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        if (activeSession != null) {
+            Log.w(TAG, "Data wipe rejected — an active Focus session (ID=${activeSession.id}) is in progress.")
+            return
+        }
+
         try {
             Log.w(TAG, "Initiating complete data wipe...")
 

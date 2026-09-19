@@ -28,11 +28,12 @@ class BootReceiver : BroadcastReceiver() {
         Log.i(TAG, "Boot event received ($action) — starting Digital Monk services")
 
         if (Intent.ACTION_LOCKED_BOOT_COMPLETED == action) {
-            Log.i(TAG, "Locked boot event — skipping Focus session Room DB recovery until device unlock")
-        } else {
-            // Check and resume active Focus Mode session
-            FocusSessionManager.checkAndResumeActiveSession(context, "BootReceiver")
+            Log.i(TAG, "Locked boot event (direct boot) — skipping Room DB and credential-encrypted PrefsManager access until device unlock")
+            return
         }
+
+        // Check and resume active Focus Mode session
+        FocusSessionManager.checkAndResumeActiveSession(context, "BootReceiver")
 
         val prefs = PrefsManager(context)
 

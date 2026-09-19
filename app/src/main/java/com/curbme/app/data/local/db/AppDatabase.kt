@@ -45,7 +45,7 @@ import kotlin.concurrent.Volatile
         AdultDomainEntity::class,
         FocusSessionEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -82,6 +82,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `focus_sessions` ADD COLUMN `ntpOffsetMs` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `focus_sessions` ADD COLUMN `ntpBootCount` INTEGER NOT NULL DEFAULT -1")
+            }
+        }
+
         /**
          * Standard Singleton pattern to provide access to the database.
          */
@@ -92,10 +99,9 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "app_database",
                 )
-                    .addMigrations(MIGRATION_10_11)
+                    .addMigrations(MIGRATION_10_11, MIGRATION_11_12)
                     .enableMultiInstanceInvalidation()
                     .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = false)
-                    .fallbackToDestructiveMigration(dropAllTables = true)
                     .build().also { INSTANCE = it }
             }
         }

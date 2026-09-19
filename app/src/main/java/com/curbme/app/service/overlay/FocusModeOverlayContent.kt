@@ -37,14 +37,17 @@ fun FocusModeOverlayContent(
     onFinished: () -> Unit
 ) {
     val context = LocalContext.current
-    var remainingSeconds by remember { mutableIntStateOf(durationSeconds) }
+
+    val flowVal = remainingSecondsFlow?.collectAsState()?.value ?: durationSeconds
+    var syncedSec by remember { mutableIntStateOf(flowVal) }
+
+    var remainingSeconds by remember { mutableIntStateOf(flowVal) }
     var progressNormalized by remember { mutableFloatStateOf(1f) }
 
-    val flowVal = remainingSecondsFlow?.collectAsState()?.value
+    // Synchronize with flow updates when flow differs significantly (>2s divergence or reset)
     LaunchedEffect(flowVal) {
-        val syncSec = flowVal
-        if (syncSec != null && syncSec > 0 && Math.abs(syncSec - remainingSeconds) > 2) {
-            remainingSeconds = syncSec
+        if (Math.abs(flowVal - syncedSec) > 2 || flowVal == 0) {
+            syncedSec = flowVal
         }
     }
 
@@ -54,20 +57,21 @@ fun FocusModeOverlayContent(
         label = "FocusProgress"
     )
 
-    LaunchedEffect(durationSeconds) {
+    // Local 50ms ticker keyed on syncedSec — re-keys smoothly whenever flow resync occurs
+    LaunchedEffect(syncedSec) {
         val totalMs = (activeSession?.totalDurationSeconds ?: durationSeconds) * 1000L
-        val startTime = SystemClock.elapsedRealtime()
-        val initialElapsed = (totalMs - (durationSeconds * 1000L)).coerceAtLeast(0L)
+        val startRealtime = SystemClock.elapsedRealtime()
+        val initialRemainingMs = syncedSec * 1000L
 
         while (true) {
-            val elapsed = initialElapsed + (SystemClock.elapsedRealtime() - startTime)
-            val remainingMs = (totalMs - elapsed).coerceAtLeast(0L)
-            
-            val sec = (remainingMs / 1000L).toInt() + (if (remainingMs % 1000L > 0) 1 else 0)
-            remainingSeconds = sec
-            progressNormalized = remainingMs.toFloat() / totalMs.toFloat()
+            val elapsedMs = SystemClock.elapsedRealtime() - startRealtime
+            val currentRemainingMs = (initialRemainingMs - elapsedMs).coerceAtLeast(0L)
 
-            if (remainingMs <= 0L) {
+            val sec = (currentRemainingMs / 1000L).toInt() + (if (currentRemainingMs % 1000L > 0) 1 else 0)
+            remainingSeconds = sec
+            progressNormalized = currentRemainingMs.toFloat() / totalMs.toFloat()
+
+            if (currentRemainingMs <= 0L) {
                 remainingSeconds = 0
                 progressNormalized = 0f
                 delay(200)

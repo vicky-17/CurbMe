@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.curbme.app.core.utils.Constants
+import com.curbme.app.data.local.db.AppDatabase
 import com.curbme.app.data.local.db.entity.FocusSessionEntity
 import com.curbme.app.service.accessibility.GuardianAccessibilityService
 import com.curbme.app.ui.overlay.OverlayLifecycleOwner
@@ -31,6 +32,7 @@ import com.curbme.app.ui.theme.CurbMeTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -73,23 +75,25 @@ class FocusModeOverlayService : Service() {
             Log.e(TAG, "startForeground failed", e)
         }
 
-        if (intent == null) {
-            Log.i(TAG, "Service restarted with null intent — recovering session from DB")
-            handleSessionStart(null)
-            return START_STICKY
-        }
+        val action = intent?.action ?: ACTION_RESUME_FOCUS
 
-        val action = intent.action ?: ACTION_START_FOCUS
         if (action == ACTION_STOP_FOCUS) {
             Log.i(TAG, "Received ACTION_STOP_FOCUS — stopping overlay service")
             hideOverlay()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
-            return START_STICKY
+            return START_NOT_STICKY
         }
 
-        val requestedDurationSeconds = intent.getIntExtra(EXTRA_DURATION_SECONDS, 10)
-        handleSessionStart(requestedDurationSeconds)
+        if (action == ACTION_RESUME_FOCUS) {
+            Log.i(TAG, "Received ACTION_RESUME_FOCUS — attempting recovery/resumption of active session")
+            handleSessionStart(requestedDurationSeconds = null)
+        } else if (action == ACTION_START_FOCUS) {
+            val requestedDurationSeconds = intent?.getIntExtra(EXTRA_DURATION_SECONDS, 10) ?: 10
+            handleSessionStart(requestedDurationSeconds = requestedDurationSeconds)
+        } else {
+            handleSessionStart(requestedDurationSeconds = null)
+        }
 
         return START_STICKY
     }
@@ -98,13 +102,14 @@ class FocusModeOverlayService : Service() {
         serviceScope.launch(Dispatchers.IO) {
             var activeSession = FocusSessionManager.getActiveSession(this@FocusModeOverlayService)
 
+            // Only create a new session if requested explicitly via ACTION_START_FOCUS with duration > 0
             if (activeSession == null && requestedDurationSeconds != null && requestedDurationSeconds > 0) {
                 Log.i(TAG, "No active session found — creating new session with duration ${requestedDurationSeconds}s")
                 activeSession = FocusSessionManager.startNewSession(this@FocusModeOverlayService, requestedDurationSeconds)
             }
 
             if (activeSession == null) {
-                Log.w(TAG, "No active Focus session to display — stopping service")
+                Log.w(TAG, "No active Focus session found to display or resume — stopping service")
                 serviceScope.launch(Dispatchers.Main) {
                     hideOverlay()
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -117,7 +122,7 @@ class FocusModeOverlayService : Service() {
             Log.i(TAG, "Active Focus session ${activeSession.id} loaded: $remainingSeconds seconds remaining")
 
             if (remainingSeconds <= 0) {
-                Log.i(TAG, "Active Focus session ${activeSession.id} has 0 remaining seconds — marking COMPLETED")
+                Log.i(TAG, "Active Focus session ${activeSession.id} expired — marking COMPLETED")
                 FocusSessionManager.markCompleted(this@FocusModeOverlayService, activeSession)
                 serviceScope.launch(Dispatchers.Main) {
                     hideOverlay()
@@ -157,14 +162,15 @@ class FocusModeOverlayService : Service() {
 
     private fun showOverlay(remainingSeconds: Int, session: FocusSessionEntity) {
         if (!Settings.canDrawOverlays(this)) {
-            Log.w(TAG, "Cannot draw overlay - permission missing")
+            Log.w(TAG, "Cannot draw overlay — permission missing")
             stopSelf()
             return
         }
 
-        // Idempotency check: duplicate overlay requests are ignored
+        // Idempotency check: duplicate overlay requests re-sync without adding duplicate views
         if (composeView != null) {
-            Log.i(TAG, "Overlay is already active — duplicate showOverlay request ignored")
+            Log.i(TAG, "Overlay is already active — re-syncing remaining flow value")
+            _remainingSecondsFlow.value = remainingSeconds
             return
         }
 
@@ -280,25 +286,31 @@ class FocusModeOverlayService : Service() {
         }
     }
 
+    /**
+     * Executes a single atomic DAO UPDATE query in a NonCancellable block.
+     * Advances elapsedTimeMs and startElapsedRealtimeMs in ONE atomic operation.
+     */
     private fun flushProgressToDbSync() {
         try {
-            runBlocking(Dispatchers.IO) {
-                val latestSession = FocusSessionManager.getActiveSession(this@FocusModeOverlayService) ?: return@runBlocking
-                val currentBootCount = getBootCount()
+            runBlocking(NonCancellable + Dispatchers.IO) {
+                val dao = AppDatabase.getDatabase(this@FocusModeOverlayService).focusSessionDao()
+                val latestSession = dao.getActiveSession() ?: return@runBlocking
+                val currentBootCount = FocusSessionManager.getBootCount(this@FocusModeOverlayService)
 
-                val newElapsedMs = if (currentBootCount != -1 && currentBootCount == latestSession.bootCount) {
-                    // Same boot: elapsed time derived strictly from hardware uptime (elapsedRealtime)
-                    val realtimeElapsed = (SystemClock.elapsedRealtime() - latestSession.startElapsedRealtimeMs).coerceAtLeast(0L)
-                    latestSession.elapsedTimeMs + realtimeElapsed
-                } else {
-                    // After reboot: elapsed time derived from wall clock
-                    val wallElapsed = (System.currentTimeMillis() - latestSession.startTimeMs).coerceAtLeast(0L)
-                    latestSession.elapsedTimeMs + wallElapsed
+                if (currentBootCount != -1 && currentBootCount == latestSession.bootCount) {
+                    val nowElapsedRealtime = SystemClock.elapsedRealtime()
+                    val nowWallClock = System.currentTimeMillis()
+
+                    if (nowElapsedRealtime >= latestSession.startElapsedRealtimeMs) {
+                        val rowsUpdated = dao.updateProgressSameBoot(
+                            sessionId = latestSession.id,
+                            currentBootCount = currentBootCount,
+                            nowElapsedRealtimeMs = nowElapsedRealtime,
+                            nowWallClockMs = nowWallClock
+                        )
+                        Log.d(TAG, "Atomic sync flush for session ${latestSession.id}: rowsUpdated=$rowsUpdated")
+                    }
                 }
-
-                val clampedElapsedMs = newElapsedMs.coerceAtMost(latestSession.totalDurationSeconds * 1000L)
-                FocusSessionManager.updateProgress(this@FocusModeOverlayService, latestSession, clampedElapsedMs)
-                Log.d(TAG, "Sync flush complete for session ${latestSession.id}: elapsedTimeMs=$clampedElapsedMs")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error during flushProgressToDbSync", e)
@@ -396,7 +408,7 @@ class FocusModeOverlayService : Service() {
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 super.onAvailable(network)
-                Log.i(TAG, "Network available — triggering NTP fetch retry if Focus session requires re-anchoring")
+                Log.i(TAG, "Network available — triggering NTP fetch retry if Focus session active")
                 serviceScope.launch(Dispatchers.IO) {
                     FocusSessionManager.fetchAndUpdateNtpOffset(this@FocusModeOverlayService)
                 }
@@ -422,14 +434,6 @@ class FocusModeOverlayService : Service() {
         networkCallback = null
     }
 
-    private fun getBootCount(): Int {
-        return try {
-            Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, -1)
-        } catch (e: Exception) {
-            -1
-        }
-    }
-
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, Constants.CHANNEL_SILENT)
             .setContentTitle("Focus Mode Active")
@@ -447,6 +451,7 @@ class FocusModeOverlayService : Service() {
         private const val NOTIFICATION_ID = 9081
 
         const val ACTION_START_FOCUS = "ACTION_START_FOCUS"
+        const val ACTION_RESUME_FOCUS = "ACTION_RESUME_FOCUS"
         const val ACTION_STOP_FOCUS = "ACTION_STOP_FOCUS"
         const val EXTRA_DURATION_SECONDS = "EXTRA_DURATION_SECONDS"
 
@@ -454,10 +459,28 @@ class FocusModeOverlayService : Service() {
         var isFocusModeActive: Boolean = false
             private set
 
+        /**
+         * Starts a new focus mode session with explicit user duration.
+         */
         fun startFocusMode(context: Context, durationSeconds: Int = 10) {
             val intent = Intent(context, FocusModeOverlayService::class.java).apply {
                 action = ACTION_START_FOCUS
                 putExtra(EXTRA_DURATION_SECONDS, durationSeconds)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        /**
+         * Resumes an existing focus mode session if active in DB.
+         * NEVER creates a new session.
+         */
+        fun resumeFocusMode(context: Context) {
+            val intent = Intent(context, FocusModeOverlayService::class.java).apply {
+                action = ACTION_RESUME_FOCUS
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)

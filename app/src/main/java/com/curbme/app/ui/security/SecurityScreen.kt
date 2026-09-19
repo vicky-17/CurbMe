@@ -68,6 +68,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SecurityScreen(prefs: PrefsManager) {
@@ -324,11 +325,19 @@ fun SecurityScreen(prefs: PrefsManager) {
 
             var remainingFocusSec by remember { mutableIntStateOf(0) }
             LaunchedEffect(activeFocusSession) {
-                while (activeFocusSession != null) {
-                    val sec = activeFocusSession?.let { FocusSessionManager.calculateRemainingSeconds(context, it) } ?: 0
-                    remainingFocusSec = sec
-                    if (sec <= 0) break
-                    delay(1000L)
+                withContext(Dispatchers.Default) {
+                    while (activeFocusSession != null) {
+                        val session = activeFocusSession
+                        val sec = if (session != null) {
+                            FocusSessionManager.calculateRemainingSeconds(context, session)
+                        } else 0
+
+                        withContext(Dispatchers.Main) {
+                            remainingFocusSec = sec
+                        }
+                        if (sec <= 0) break
+                        delay(1000L)
+                    }
                 }
             }
 
@@ -348,7 +357,7 @@ fun SecurityScreen(prefs: PrefsManager) {
                             context.startActivity(intent)
                             Toast.makeText(context, "Please grant Overlay permission to view Focus Mode.", Toast.LENGTH_LONG).show()
                         } else {
-                            FocusModeOverlayService.startFocusMode(context, remainingFocusSec)
+                            FocusModeOverlayService.resumeFocusMode(context)
                         }
                     }
                 )

@@ -9,24 +9,22 @@ import android.util.Log
 import com.curbme.app.core.utils.NtpFetcher
 import com.curbme.app.data.local.db.AppDatabase
 import com.curbme.app.data.local.db.entity.FocusSessionEntity
-import com.curbme.app.data.local.prefs.PrefsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
  * Single source of truth for Focus Mode sessions.
- * Handles persistent storage, re-anchoring across reboots, monotonic hardware uptime calculations,
- * NTP validation, and auto-recovery across processes and startup points.
+ * Handles persistent storage, process-safe atomic CAS re-anchoring across reboots,
+ * pure monotonic hardware uptime calculations, and auto-recovery across processes.
  */
 object FocusSessionManager {
     private const val TAG = "FocusSessionManager"
 
     /**
      * Attempts to start a new Focus session.
-     * Rejects if an ACTIVE session already exists in the database.
+     * Uses atomic insertIfNoActiveSession DAO query to prevent check-then-insert race conditions.
      */
     suspend fun startNewSession(context: Context, durationSeconds: Int): FocusSessionEntity? = withContext(Dispatchers.IO) {
         if (!isStorageUnlocked(context)) {
@@ -62,146 +60,139 @@ object FocusSessionManager {
             startElapsedRealtimeMs = elapsedRealtimeMs
         )
 
-        val insertedId = dao.insertSession(newSession)
+        val insertedId = dao.insertIfNoActiveSession(newSession)
+        if (insertedId == -1L) {
+            Log.w(TAG, "Start new session atomic insertion rejected — an active session was concurrently created")
+            return@withContext null
+        }
+
         val createdSession = newSession.copy(id = insertedId)
         Log.i(TAG, "Created new Focus session: id=$insertedId, duration=${durationSeconds}s, bootCount=$currentBootCount")
         return@withContext createdSession
     }
 
     /**
-     * Fetches NTP time off the main thread ONLY if an active session exists AND
-     * the current system boot count differs from the session's stored boot count.
+     * Fetches NTP time off the main thread if an active session exists.
+     * Stores the NTP offset along with the current boot count on the session row.
      */
     suspend fun fetchAndUpdateNtpOffset(context: Context) = withContext(Dispatchers.IO) {
         if (!isStorageUnlocked(context)) return@withContext
-        val activeSession = getActiveSession(context) ?: return@withContext
+        val dao = AppDatabase.getDatabase(context).focusSessionDao()
+        val activeSession = dao.getActiveSession() ?: return@withContext
         val currentBoot = getBootCount(context)
 
-        // Only fetch NTP when an active session exists AND boot count differs (after a reboot)
-        if (currentBoot != -1 && currentBoot != activeSession.bootCount) {
-            val ntpTime = NtpFetcher.fetchNtpTime()
-            if (ntpTime > 0) {
-                val offset = ntpTime - System.currentTimeMillis()
-                PrefsManager(context).focusNtpOffset = offset
-                Log.i(TAG, "NTP time fetched after reboot for active session ${activeSession.id}: ntpTime=$ntpTime, offsetMs=$offset")
-            } else {
-                Log.w(TAG, "NTP fetch unavailable after reboot — falling back to device wall clock")
-            }
+        val ntpTime = NtpFetcher.fetchNtpTime()
+        if (ntpTime > 0) {
+            val offset = ntpTime - System.currentTimeMillis()
+            dao.updateNtpOffset(activeSession.id, offset, currentBoot)
+            Log.i(TAG, "NTP time fetched for active session ${activeSession.id}: ntpTime=$ntpTime, offsetMs=$offset, bootCount=$currentBoot")
+        } else {
+            Log.w(TAG, "NTP fetch unavailable — keeping existing session clock anchor")
         }
     }
 
     /**
-     * Re-anchors session in DB after a device reboot.
-     * Computes consumed time using wall-clock (+ NTP offset if available),
-     * then updates DB row with current boot count, new startElapsedRealtimeMs,
-     * and updated elapsedTimeMs so same-boot monotonic calculation applies from then on.
+     * Atomically re-anchors session in DB after a device reboot using compare-and-set on bootCount.
+     * Prevents multi-process race conditions between main process and :guardian process.
      */
     suspend fun reanchorSessionAfterReboot(context: Context, session: FocusSessionEntity): Int = withContext(Dispatchers.IO) {
         if (!isStorageUnlocked(context)) return@withContext 0
         val dao = AppDatabase.getDatabase(context).focusSessionDao()
         val latestSession = dao.getActiveSession() ?: session
 
-        val ntpOffset = PrefsManager(context).focusNtpOffset
-        val wallNowMs = if (ntpOffset != 0L) System.currentTimeMillis() + ntpOffset else System.currentTimeMillis()
-        val wallElapsedMs = maxOf(0L, wallNowMs - latestSession.lastUpdatedTimeMs)
-        val newTotalElapsedMs = latestSession.elapsedTimeMs + wallElapsedMs
+        val currentBoot = getBootCount(context)
+        if (currentBoot == -1) {
+            Log.w(TAG, "BOOT_COUNT unavailable (-1) — falling back to safe same-boot time calculation")
+            return@withContext calculateRemainingSeconds(context, latestSession)
+        }
 
-        val totalDurationMs = latestSession.totalDurationSeconds * 1000L
-        val remainingMs = (totalDurationMs - newTotalElapsedMs).coerceAtLeast(0L)
+        if (latestSession.bootCount == currentBoot) {
+            // Already re-anchored by another process
+            return@withContext calculateRemainingSeconds(context, latestSession)
+        }
 
-        if (remainingMs <= 0L) {
-            Log.i(TAG, "Session ${latestSession.id} expired during reboot recovery — marking COMPLETED")
+        val ntpOffsetOrNull = if (latestSession.ntpBootCount == currentBoot && latestSession.ntpOffsetMs != 0L) {
+            latestSession.ntpOffsetMs
+        } else null
+
+        val nowWallMs = System.currentTimeMillis()
+        val nowElapsedRealtimeMs = SystemClock.elapsedRealtime()
+
+        val consumedMs = FocusTimeUtils.consumedMs(
+            session = latestSession,
+            currentBootCount = currentBoot,
+            nowElapsedRealtimeMs = nowElapsedRealtimeMs,
+            nowWallClockMs = nowWallMs,
+            validNtpOffsetOrNull = ntpOffsetOrNull
+        )
+
+        val totalMs = latestSession.totalDurationSeconds * 1000L
+        if (consumedMs >= totalMs) {
+            Log.i(TAG, "Session ${latestSession.id} expired during reboot downtime — marking COMPLETED")
             markCompleted(context, latestSession)
             return@withContext 0
         }
 
-        val currentBoot = getBootCount(context)
-        val currentElapsedRealtime = SystemClock.elapsedRealtime()
-        val nowMs = System.currentTimeMillis()
-
-        val reanchoredSession = latestSession.copy(
-            bootCount = currentBoot,
-            startElapsedRealtimeMs = currentElapsedRealtime,
-            elapsedTimeMs = newTotalElapsedMs,
-            lastUpdatedTimeMs = maxOf(nowMs, latestSession.lastUpdatedTimeMs)
+        val rowsUpdated = dao.reanchorRebootCas(
+            sessionId = latestSession.id,
+            expectedOldBootCount = latestSession.bootCount,
+            newBootCount = currentBoot,
+            nowElapsedRealtimeMs = nowElapsedRealtimeMs,
+            newElapsedTimeMs = consumedMs,
+            nowWallClockMs = maxOf(nowWallMs, latestSession.lastUpdatedTimeMs),
+            ntpOffsetMs = latestSession.ntpOffsetMs,
+            ntpBootCount = latestSession.ntpBootCount
         )
-        dao.updateSession(reanchoredSession)
-        Log.i(TAG, "Re-anchored Focus session ${session.id} after reboot: newBootCount=$currentBoot, elapsedTimeMs=$newTotalElapsedMs, remainingMs=$remainingMs")
 
-        val remainingSec = (remainingMs / 1000L).toInt() + (if (remainingMs % 1000L > 0) 1 else 0)
-        return@withContext remainingSec.coerceIn(0, session.totalDurationSeconds)
+        if (rowsUpdated > 0) {
+            Log.i(TAG, "Atomically re-anchored Focus session ${latestSession.id} after reboot: newBootCount=$currentBoot, elapsedTimeMs=$consumedMs")
+        } else {
+            Log.i(TAG, "Re-anchor CAS on session ${latestSession.id} skipped — already updated by another process")
+        }
+
+        val updatedSession = dao.getActiveSession() ?: latestSession
+        return@withContext FocusTimeUtils.remainingSeconds(updatedSession, currentBoot, SystemClock.elapsedRealtime(), System.currentTimeMillis())
     }
 
     /**
-     * Calculates remaining seconds for an active session with tamper protection.
-     * 
-     * Time Rule Logic:
-     * 1. Same Boot (currentBootCount == session.bootCount):
-     *    elapsed = session.elapsedTimeMs + (currentElapsedRealtime - session.startElapsedRealtimeMs)
-     *    remaining = totalDuration - elapsed
-     *    Changing system clock forward or backward in same boot has 0 effect on remaining time.
-     * 2. After Reboot (currentBootCount != session.bootCount):
-     *    Computes elapsed from wall-clock (+ NTP offset if available), then re-anchors DB row
-     *    to current boot count and current elapsedRealtime.
+     * Calculates remaining seconds for an active session using pure FocusTimeUtils functions.
+     * Pure and non-blocking. If reboot re-anchor is needed, schedules re-anchor asynchronously on IO dispatcher.
      */
     fun calculateRemainingSeconds(context: Context, session: FocusSessionEntity): Int {
-        val currentBootCount = getBootCount(context)
-        val currentElapsedRealtimeMs = SystemClock.elapsedRealtime()
+        val currentBoot = getBootCount(context)
+        val nowElapsedRealtimeMs = SystemClock.elapsedRealtime()
+        val nowWallClockMs = System.currentTimeMillis()
 
-        if (currentBootCount != -1 && currentBootCount == session.bootCount) {
-            // Same Boot: Monotonic hardware uptime calculation
-            val realtimeElapsed = (currentElapsedRealtimeMs - session.startElapsedRealtimeMs).coerceAtLeast(0L)
-            val totalElapsedMs = session.elapsedTimeMs + realtimeElapsed
-            val totalMs = session.totalDurationSeconds * 1000L
-            val remainingMs = (totalMs - totalElapsedMs).coerceAtLeast(0L)
+        val validNtpOffsetOrNull = if (session.ntpBootCount == currentBoot && session.ntpOffsetMs != 0L) {
+            session.ntpOffsetMs
+        } else null
 
-            val remainingSeconds = (remainingMs / 1000L).toInt() + (if (remainingMs % 1000L > 0) 1 else 0)
-            return remainingSeconds.coerceIn(0, session.totalDurationSeconds)
-        } else {
-            // After Reboot: Re-anchor asynchronously or synchronously
-            var remainingSec = 0
-            runBlocking(Dispatchers.IO) {
-                remainingSec = reanchorSessionAfterReboot(context, session)
+        if (currentBoot != -1 && session.bootCount != currentBoot) {
+            // Asynchronously perform CAS re-anchor off the main thread
+            CoroutineScope(Dispatchers.IO).launch {
+                reanchorSessionAfterReboot(context, session)
             }
-            return remainingSec
         }
-    }
 
-    /**
-     * Updates elapsed progress to the database off the main thread.
-     * Always loads the latest row from DB before writing updates.
-     */
-    suspend fun updateProgress(context: Context, session: FocusSessionEntity, elapsedMs: Long) = withContext(Dispatchers.IO) {
-        if (!isStorageUnlocked(context)) return@withContext
-        val dao = AppDatabase.getDatabase(context).focusSessionDao()
-        val latestSession = dao.getActiveSession() ?: return@withContext
-        if (latestSession.id != session.id) return@withContext
-
-        val nowMs = System.currentTimeMillis()
-        val updatedSession = latestSession.copy(
-            elapsedTimeMs = maxOf(latestSession.elapsedTimeMs, elapsedMs),
-            lastUpdatedTimeMs = maxOf(nowMs, latestSession.lastUpdatedTimeMs)
+        return FocusTimeUtils.remainingSeconds(
+            session = session,
+            currentBootCount = currentBoot,
+            nowElapsedRealtimeMs = nowElapsedRealtimeMs,
+            nowWallClockMs = nowWallClockMs,
+            validNtpOffsetOrNull = validNtpOffsetOrNull
         )
-        dao.updateSession(updatedSession)
-        Log.d(TAG, "Progress updated for session ${latestSession.id}: elapsedTimeMs=${updatedSession.elapsedTimeMs}")
     }
 
     /**
-     * Marks session COMPLETED and prunes old sessions.
+     * Marks session COMPLETED and prunes finished sessions.
      */
     suspend fun markCompleted(context: Context, session: FocusSessionEntity) = withContext(Dispatchers.IO) {
         if (!isStorageUnlocked(context)) return@withContext
         val dao = AppDatabase.getDatabase(context).focusSessionDao()
-        val latestSession = dao.getActiveSession() ?: session
         val nowMs = System.currentTimeMillis()
-        val completedSession = latestSession.copy(
-            status = FocusSessionEntity.STATUS_COMPLETED,
-            elapsedTimeMs = latestSession.totalDurationSeconds * 1000L,
-            lastUpdatedTimeMs = maxOf(nowMs, latestSession.lastUpdatedTimeMs)
-        )
-        dao.updateSession(completedSession)
+        dao.markCompletedById(session.id, nowMs)
         dao.pruneFinishedSessions(20)
-        Log.i(TAG, "Focus session ${completedSession.id} marked COMPLETED")
+        Log.i(TAG, "Focus session ${session.id} marked COMPLETED")
     }
 
     /**
@@ -210,15 +201,10 @@ object FocusSessionManager {
     suspend fun cancelSessionWithPayment(context: Context, session: FocusSessionEntity) = withContext(Dispatchers.IO) {
         if (!isStorageUnlocked(context)) return@withContext
         val dao = AppDatabase.getDatabase(context).focusSessionDao()
-        val latestSession = dao.getActiveSession() ?: session
         val nowMs = System.currentTimeMillis()
-        val cancelledSession = latestSession.copy(
-            status = FocusSessionEntity.STATUS_CANCELLED_BY_PAYMENT,
-            lastUpdatedTimeMs = maxOf(nowMs, latestSession.lastUpdatedTimeMs)
-        )
-        dao.updateSession(cancelledSession)
+        dao.markCancelledByPaymentById(session.id, nowMs)
         dao.pruneFinishedSessions(20)
-        Log.i(TAG, "Focus session ${cancelledSession.id} marked CANCELLED_BY_PAYMENT")
+        Log.i(TAG, "Focus session ${session.id} marked CANCELLED_BY_PAYMENT")
     }
 
     /**
@@ -234,7 +220,7 @@ object FocusSessionManager {
 
     /**
      * Checks database for an ACTIVE session and resumes the overlay if time remains.
-     * Safe for calling from any process or recovery point.
+     * Uses ACTION_RESUME_FOCUS — NEVER creates a new session.
      */
     fun checkAndResumeActiveSession(context: Context, source: String = "Unknown") {
         if (!isStorageUnlocked(context)) {
@@ -244,9 +230,6 @@ object FocusSessionManager {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Fetch NTP offset ONLY if active session exists and boot count differs
-                fetchAndUpdateNtpOffset(context)
-
                 val dao = AppDatabase.getDatabase(context).focusSessionDao()
                 val activeSession = dao.getActiveSession() ?: run {
                     Log.d(TAG, "[$source] Recovery check: No active Focus session found")
@@ -267,8 +250,8 @@ object FocusSessionManager {
                     return@launch
                 }
 
-                // Request service start. Duplicate protection is handled inside FocusModeOverlayService itself.
-                FocusModeOverlayService.startFocusMode(context, remainingSeconds)
+                // Resume overlay via ACTION_RESUME_FOCUS (never passes duration, never creates new session)
+                FocusModeOverlayService.resumeFocusMode(context)
                 Log.i(TAG, "[$source] Triggered overlay resume for session ${activeSession.id}")
             } catch (e: Exception) {
                 Log.e(TAG, "[$source] Error during Focus session recovery", e)
@@ -286,7 +269,7 @@ object FocusSessionManager {
         return true
     }
 
-    private fun getBootCount(context: Context): Int {
+    fun getBootCount(context: Context): Int {
         return try {
             Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1)
         } catch (e: Exception) {

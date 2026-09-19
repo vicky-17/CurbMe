@@ -19,6 +19,8 @@ data class FocusSessionEntity(
     val lastUpdatedTimeMs: Long = startTimeMs,
     val bootCount: Int = -1,
     val startElapsedRealtimeMs: Long = 0L,
+    val ntpOffsetMs: Long = 0L,
+    val ntpBootCount: Int = -1,
     // TODO: Extension point for allowed apps passthrough in Focus Mode (e.g. comma-separated package names or JSON array)
     val allowedPackageNames: String? = null
 ) {

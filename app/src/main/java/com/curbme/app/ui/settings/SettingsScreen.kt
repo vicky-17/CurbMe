@@ -4,10 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.*
@@ -22,7 +20,6 @@ import com.curbme.app.core.utils.DataWiper
 import com.curbme.app.ui.components.cards.ActionCard
 import com.curbme.app.ui.components.common.SectionLabel
 import com.curbme.app.ui.theme.CurbMeTheme
-import java.lang.RuntimeException
 
 @Composable
 fun SettingsScreen(
@@ -72,20 +69,6 @@ fun SettingsScreen(
                 description = "Update your parent access PIN",
                 icon = Icons.Rounded.Lock,
                 onClick = onChangePinClick
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SectionLabel("Developer & Support", modifier = Modifier.padding(horizontal = 20.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-
-            ActionCard(
-                title = "Test Crash Report",
-                description = "Triggers a controlled crash to test Firebase Crashlytics.",
-                icon = Icons.Rounded.BugReport,
-                onClick = {
-                    throw RuntimeException("Manual Test Crash from Settings")
-                }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
